@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  fullName      String
+  email         String         @unique
+  passwordHash  String
+  companyName   String?
+  teamSize      String?
+  role          String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  projects      Project[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targets     Target[]
+}
+
+model Target {
+  id        String     @id @default(uuid())
+  name      String
+  url       String
+  type      TargetType
+  projectId String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  scans     Scan[]
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Scan {
+  id        String     @id @default(uuid())
+  status    ScanStatus @default(QUEUED)
+  summary   String?
+  targetId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  duration  Int?
+  scanType  String     @default("QUICK")
+  score     Int?
+  findings  Finding[]
+  report    Report?
+  target    Target     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+}
+
+model Finding {
+  id          String   @id @default(uuid())
+  scanId      String
+  findingCode String
+  title       String
+  severity    Severity
+  description String
+  evidence    String
+  filePath    String?
+  lineNumber  Int?
+  remediation String
+  createdAt   DateTime @default(now())
+  scan        Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  scanId    String   @unique
+  summary   String
+  markdown  String
+  createdAt DateTime @default(now())
+  scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
+
+enum TargetType {
+  WEBSITE
+  REPOSITORY
+}
+
+enum ScanStatus {
+  COMPLETED
+  RUNNING
+  QUEUED
+  FAILED
+  CANCELLED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}

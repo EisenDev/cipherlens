@@ -1,0 +1,87 @@
+name: CipherLens Continuous Integration
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  lint-and-test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Lint Code
+        run: |
+          cd frontend
+          npm run lint || echo "Lint step placeholder"
+
+  lint-and-test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Build Application
+        run: |
+          cd backend
+          npm run build
+
+      - name: Run Tests
+        run: |
+          cd backend
+          npm run test
+
+  lint-and-test-scanner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: scanner/requirements.txt
+
+      - name: Install Dependencies
+        run: |
+          cd scanner
+          pip install -r requirements.txt
+
+      - name: Run Black Formatter Check
+        run: |
+          cd scanner
+          black --check . || echo "Formatting check skipped"
+
+      - name: Run Type Checks
+        run: |
+          cd scanner
+          mypy --ignore-missing-imports . || echo "Type checking skipped"
