@@ -61,6 +61,9 @@ def get_findings_workspace(
     total_active = 0
     critical_active = 0
     high_active = 0
+    medium_active = 0
+    low_active = 0
+    info_active = 0
     resolved_this_week = 0
     resolution_durations = []
     assets_with_active = set()
@@ -78,6 +81,12 @@ def get_findings_workspace(
                 critical_active += 1
             elif severity_upper == "HIGH":
                 high_active += 1
+            elif severity_upper == "MEDIUM":
+                medium_active += 1
+            elif severity_upper == "LOW":
+                low_active += 1
+            elif severity_upper in ("INFO", "INFORMATIONAL"):
+                info_active += 1
             assets_with_active.add(item.asset_id)
         
         # Check resolved this week
@@ -284,6 +293,9 @@ def get_findings_workspace(
             "totalActive": total_active,
             "criticalActive": critical_active,
             "highActive": high_active,
+            "mediumActive": medium_active,
+            "lowActive": low_active,
+            "infoActive": info_active,
             "resolvedThisWeek": resolved_this_week,
             "avgHoursToResolution": avg_hours_to_resolve,
             "assetsWithActive": len(assets_with_active)

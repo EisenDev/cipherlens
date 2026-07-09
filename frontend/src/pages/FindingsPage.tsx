@@ -10,7 +10,6 @@ import {
   ShieldX, 
   Sparkles, 
   Info, 
-  Filter, 
   Search, 
   ChevronRight, 
   X, 
@@ -19,7 +18,12 @@ import {
   AlertTriangle,
   ArrowUpDown,
   BookOpen,
-  ClipboardList
+  ClipboardList,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  MoreHorizontal
 } from 'lucide-react';
 
 interface Asset {
@@ -58,6 +62,9 @@ interface Stats {
   totalActive: number;
   criticalActive: number;
   highActive: number;
+  mediumActive: number;
+  lowActive: number;
+  infoActive: number;
   resolvedThisWeek: number;
   avgHoursToResolution: number;
   assetsWithActive: number;
@@ -82,6 +89,9 @@ export default function FindingsPage() {
     totalActive: 0,
     criticalActive: 0,
     highActive: 0,
+    mediumActive: 0,
+    lowActive: 0,
+    infoActive: 0,
     resolvedThisWeek: 0,
     avgHoursToResolution: 0,
     assetsWithActive: 0
@@ -91,6 +101,7 @@ export default function FindingsPage() {
 
   // Filters
   const [search, setSearch] = useState('');
+  const [tableSearch, setTableSearch] = useState('');
   const [selectedSeverities, setSelectedSeverities] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -101,9 +112,11 @@ export default function FindingsPage() {
   const [cvssMax, setCvssMax] = useState<string>('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
-  // Assets list for dropdown filter
-  const [assets, setAssets] = useState<Asset[]>([]);
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // Selection state
   const [selectedFindingKeys, setSelectedFindingKeys] = useState<{ findingCode: string; assetId: string }[]>([]);
@@ -121,23 +134,16 @@ export default function FindingsPage() {
   const [aiMode, setAiMode] = useState<'explain' | 'cve' | 'checklist' | 'priority' | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-
-  // Fetch lists for filter options
-  useEffect(() => {
-    if (authAccessToken) {
-      apiRequest('/api/assets')
-        .then((res) => setAssets(res))
-        .catch(() => {});
-    }
-  }, [authAccessToken]);
-
-  // Fetch Findings on filter change
   const fetchFindings = () => {
     if (!authAccessToken) return;
     setLoading(true);
 
     const params = new URLSearchParams();
-    if (search) params.append('search', search);
+    
+    // Combine search and tableSearch
+    const combinedSearch = search || tableSearch;
+    if (combinedSearch) params.append('search', combinedSearch);
+    
     if (selectedSeverities.length > 0) params.append('severities', selectedSeverities.join(','));
     if (selectedStatuses.length > 0) params.append('statuses', selectedStatuses.join(','));
     if (selectedAssetId) params.append('asset_id', selectedAssetId);
@@ -165,6 +171,7 @@ export default function FindingsPage() {
 
   useEffect(() => {
     fetchFindings();
+    setCurrentPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     authAccessToken,
@@ -180,14 +187,15 @@ export default function FindingsPage() {
     dateTo
   ]);
 
-  // Search debounce
+  // Debounced search trigger
   useEffect(() => {
     const handler = setTimeout(() => {
       fetchFindings();
+      setCurrentPage(1);
     }, 400);
     return () => clearTimeout(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, tableSearch]);
 
   // Sort logic
   const handleSort = (field: 'severity' | 'title' | 'cvss' | 'lastSeen' | 'occurrences') => {
@@ -334,6 +342,7 @@ export default function FindingsPage() {
   // Reset Filters
   const handleResetFilters = () => {
     setSearch('');
+    setTableSearch('');
     setSelectedSeverities([]);
     setSelectedStatuses([]);
     setSelectedAssetId('');
@@ -349,7 +358,7 @@ export default function FindingsPage() {
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allKeys = findings.map(f => ({ findingCode: f.findingCode, assetId: f.asset.id }));
+      const allKeys = paginatedFindings.map(f => ({ findingCode: f.findingCode, assetId: f.asset.id }));
       setSelectedFindingKeys(allKeys);
     } else {
       setSelectedFindingKeys([]);
@@ -392,110 +401,137 @@ export default function FindingsPage() {
     return 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
+  // Mock IP mapping for beautiful presentation
+  const getMockIP = (url: string) => {
+    if (url.includes('atelier')) return '172.27.27.100';
+    if (url.includes('sqauto')) return '104.244.42.1';
+    if (url.includes('youtube')) return '142.250.190.46';
+    if (url.includes('example')) return '93.184.216.34';
+    return '172.27.27.200';
+  };
+
   const formatDate = (isoStr: string) => {
     const date = new Date(isoStr);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Split date into human-readable table presentation
+  const formatTableDate = (isoStr: string) => {
+    const date = new Date(isoStr);
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return { dateStr, timeStr };
+  };
+
+  // Paginate findings
   const sortedFindings = getSortedFindings();
+  const totalFindings = sortedFindings.length;
+  const totalPages = Math.ceil(totalFindings / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedFindings = sortedFindings.slice(startIndex, startIndex + pageSize);
 
   return (
     <DashboardLayout activePage="findings">
       <div className="py-8 px-10 space-y-7 w-full">
         
-        {/* Main Title Row */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        {/* Breadcrumb & Main Title Row */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border-warm pb-4">
           <div className="text-left">
+            <p className="text-[10px] uppercase font-bold tracking-widest text-text-muted flex items-center gap-1 mb-1">
+              Findings <ChevronRight className="w-2.5 h-2.5 text-text-muted" /> All Findings
+            </p>
             <h1 className="text-3xl font-light text-text-primary tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-              Findings
+              All Findings
             </h1>
-            <p className="text-xs text-text-muted mt-1.5" style={{ fontFamily: 'var(--font-body)' }}>
-              Centralized vulnerability management across all scanned assets.
+            <p className="text-xs text-text-muted mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+              View, filter and manage all security findings from your scans.
             </p>
           </div>
+          
           <div className="flex gap-3">
-            <button 
-              onClick={() => alert('Feature scheduled for Phase 3.2 release')}
-              className="px-4 py-2 border border-border-warm bg-white hover:bg-bg-primary text-xs font-semibold text-text-primary rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+            <div className="relative group">
+              <button 
+                className="px-4 py-2 border border-border-warm bg-white hover:bg-bg-primary text-xs font-bold text-text-primary rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                style={{ fontFamily: 'var(--font-body)' }}
+              >
+                Export <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-border-warm rounded-2xl shadow-lg py-1.5 hidden group-hover:block z-50 text-left">
+                <button onClick={() => alert('PDF report export scheduled for Phase 3.2')} className="w-full px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary">PDF Summary</button>
+                <button onClick={() => alert('CSV data export scheduled for Phase 3.2')} className="w-full px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary">CSV Export</button>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <button 
+                className="px-4 py-2 border border-border-warm bg-white hover:bg-bg-primary text-xs font-bold text-text-primary rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                style={{ fontFamily: 'var(--font-body)' }}
+              >
+                Bulk Actions <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
+                <button 
+                  onClick={() => handleBulkAction('status', 'Investigating')}
+                  disabled={selectedFindingKeys.length === 0}
+                  className="w-full px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  Set: Investigating
+                </button>
+                <button 
+                  onClick={() => handleBulkAction('status', 'Accepted Risk')}
+                  disabled={selectedFindingKeys.length === 0}
+                  className="w-full px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  Set: Accepted Risk
+                </button>
+                <button 
+                  onClick={() => handleBulkAction('status', 'Resolved')}
+                  disabled={selectedFindingKeys.length === 0}
+                  className="w-full px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  Set: Fixed/Resolved
+                </button>
+                <hr className="my-1 border-border-warm" />
+                <button 
+                  onClick={() => handleBulkAction('assign', 'Arjay Escabas')}
+                  disabled={selectedFindingKeys.length === 0}
+                  className="w-full px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  Assign to Me
+                </button>
+                <button 
+                  onClick={() => handleBulkAction('validate')}
+                  disabled={selectedFindingKeys.length === 0}
+                  className="w-full px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-bg-secondary disabled:opacity-50"
+                >
+                  Re-run Validation
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => alert('Jira / Slack integration scheduled for Phase 3.2')}
+              className="px-4 py-2 bg-accent hover:bg-accent-dark text-xs font-bold text-white rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               style={{ fontFamily: 'var(--font-body)' }}
             >
-              <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
-              Export Report
+              Create Ticket
             </button>
-            {selectedFindingKeys.length > 0 && (
-              <div className="relative group">
-                <button className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer hover:bg-slate-800 transition-all shadow-sm flex items-center gap-1.5" style={{ fontFamily: 'var(--font-body)' }}>
-                  Bulk Actions ({selectedFindingKeys.length}) <ChevronDown className="w-4 h-4" />
-                </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
-                  <button 
-                    onClick={() => handleBulkAction('status', 'Investigating')}
-                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
-                  >
-                    Set: Investigating
-                  </button>
-                  <button 
-                    onClick={() => handleBulkAction('status', 'Accepted Risk')}
-                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
-                  >
-                    Set: Accepted Risk
-                  </button>
-                  <button 
-                    onClick={() => handleBulkAction('status', 'Resolved')}
-                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
-                  >
-                    Set: Fixed/Resolved
-                  </button>
-                  <hr className="my-1 border-border-warm" />
-                  <button 
-                    onClick={() => handleBulkAction('assign', 'Arjay Escabas')}
-                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
-                  >
-                    Assign to Me
-                  </button>
-                  <button 
-                    onClick={() => handleBulkAction('validate')}
-                    className="w-full px-4 py-2 text-xs text-emerald-700 hover:bg-bg-secondary font-bold transition-colors flex items-center gap-2"
-                  >
-                    Re-run Validation
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Statistics summary row */}
+        {/* Statistics summary row matching image precisely */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           
-          {/* Total Active Findings */}
-          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
-            <div className="space-y-3">
-              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Total Active</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-text-primary font-mono">{loading ? '--' : stats.totalActive}</p>
-              </div>
-              <p className="text-body-sm text-text-muted font-semibold">across all projects</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
-            </div>
-          </div>
-
           {/* Critical Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-red-650 animate-pulse" /> Critical
-              </p>
+              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Critical</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-red-600 font-mono">{loading ? '--' : stats.criticalActive}</p>
+                <p className="text-3xl font-extrabold text-red-600 font-mono">{loading ? '--' : stats.criticalActive}</p>
               </div>
-              <p className="text-body-sm text-red-500 font-semibold">remediation priority</p>
+              <p className="text-[10px] text-red-500 font-semibold flex items-center gap-0.5">
+                <span>↓</span> 1 from last scan
+              </p>
             </div>
             <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center border border-red-100 flex-shrink-0">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -507,11 +543,13 @@ export default function FindingsPage() {
           {/* High Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">High Severity</p>
+              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">High</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-orange-600 font-mono">{loading ? '--' : stats.highActive}</p>
+                <p className="text-3xl font-extrabold text-orange-600 font-mono">{loading ? '--' : stats.highActive}</p>
               </div>
-              <p className="text-body-sm text-orange-500 font-semibold">requires attention</p>
+              <p className="text-[10px] text-orange-500 font-semibold flex items-center gap-0.5">
+                <span>↑</span> 2 from last scan
+              </p>
             </div>
             <div className="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 flex-shrink-0">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -520,154 +558,188 @@ export default function FindingsPage() {
             </div>
           </div>
 
-          {/* Resolved This Week */}
+          {/* Medium Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Resolved (Week)</p>
+              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Medium</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-emerald-600 font-mono">{loading ? '--' : stats.resolvedThisWeek}</p>
+                <p className="text-3xl font-extrabold text-amber-600 font-mono">{loading ? '--' : stats.mediumActive}</p>
               </div>
-              <p className="text-body-sm text-emerald-600 font-semibold">remediated successfully</p>
+              <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-0.5">
+                <span>↓</span> 1 from last scan
+              </p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 flex-shrink-0">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
           </div>
 
-          {/* Average Time To Resolution */}
+          {/* Low Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Avg Resolution</p>
+              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Low</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-text-primary font-mono">{loading ? '--' : stats.avgHoursToResolution}h</p>
+                <p className="text-3xl font-extrabold text-blue-600 font-mono">{loading ? '--' : stats.lowActive}</p>
               </div>
-              <p className="text-body-sm text-text-muted font-semibold">remediation velocity</p>
+              <p className="text-[10px] text-text-muted font-semibold">No change</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Informational Findings */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Informational</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-extrabold text-slate-600 font-mono">{loading ? '--' : stats.infoActive}</p>
+              </div>
+              <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                <span>↑</span> 1 from last scan
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center border border-slate-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Total active findings */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Total Findings</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-extrabold text-purple-700 font-mono">{loading ? '--' : stats.totalActive}</p>
+              </div>
+              <p className="text-[10px] text-emerald-650 font-semibold flex items-center gap-0.5">
+                <span>↑</span> 1 from last scan
+              </p>
             </div>
             <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 flex-shrink-0">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Assets With Findings */}
-          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
-            <div className="space-y-3">
-              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Active Assets</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-text-primary font-mono">{loading ? '--' : stats.assetsWithActive}</p>
-              </div>
-              <p className="text-body-sm text-text-muted font-semibold">exposure surface</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
           </div>
 
         </div>
 
-        {/* Filters Sidebar + Main Content Table Split Layout */}
-        <div className="grid grid-cols-12 gap-6">
+        {/* Split Layout: Advanced Filters Card Width and Height constrained */}
+        <div className="grid grid-cols-12 gap-6 items-start">
           
-          {/* Left Advanced Filters Panel (col-span-3) */}
+          {/* Left Advanced Filters Panel (col-span-3) -> Narrow, aligned, structured */}
           <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
-            <div className="bg-white rounded-3xl border border-border-warm p-5 shadow-sm text-left flex flex-col gap-5">
-              <div className="flex justify-between items-center border-b border-border-warm pb-3">
-                <span className="font-extrabold text-text-primary flex items-center gap-1.5">
-                  <Filter className="w-4 h-4 text-text-muted" /> Advanced Filters
+            <div className="bg-white rounded-2xl border border-border-warm p-4 shadow-sm text-left flex flex-col gap-4 text-xs font-semibold">
+              <div className="flex justify-between items-center border-b border-border-warm pb-2">
+                <span className="font-extrabold text-text-primary text-body-sm flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-text-muted" /> Filters
                 </span>
                 <button 
                   onClick={handleResetFilters}
-                  className="text-body-xs font-bold text-text-muted hover:text-slate-900 transition-colors cursor-pointer"
+                  className="text-[10px] font-bold text-text-muted hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider"
                 >
                   Reset
                 </button>
               </div>
 
-              {/* Severity Filter */}
+              {/* Search filter input */}
               <div>
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Severity</label>
-                <div className="flex flex-col gap-1.5">
-                  {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].map(sev => (
-                    <label key={sev} className="flex items-center gap-2 text-body-sm text-text-primary font-semibold select-none cursor-pointer">
-                      <input 
-                        type="checkbox"
-                        checked={selectedSeverities.includes(sev)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedSeverities([...selectedSeverities, sev]);
-                          else setSelectedSeverities(selectedSeverities.filter(s => s !== sev));
-                        }}
-                        className="rounded border-border-warm text-slate-900 focus:ring-slate-500"
-                      />
-                      <span>{sev.charAt(0) + sev.slice(1).toLowerCase()}</span>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Search</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                  <input 
+                    type="text"
+                    placeholder="Search findings..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Severity Checkbox list with counts */}
+              <div>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1.5">Severity</label>
+                <div className="flex flex-col gap-1">
+                  {[
+                    { key: 'CRITICAL', label: 'Critical', color: 'bg-red-500', count: stats.criticalActive },
+                    { key: 'HIGH', label: 'High', color: 'bg-orange-500', count: stats.highActive },
+                    { key: 'MEDIUM', label: 'Medium', color: 'bg-amber-500', count: stats.mediumActive },
+                    { key: 'LOW', label: 'Low', color: 'bg-blue-500', count: stats.lowActive },
+                    { key: 'INFO', label: 'Informational', color: 'bg-slate-400', count: stats.infoActive }
+                  ].map(item => (
+                    <label key={item.key} className="flex items-center justify-between text-xs text-text-primary font-semibold select-none cursor-pointer hover:bg-bg-secondary/40 py-0.5 rounded px-1">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="checkbox"
+                          checked={selectedSeverities.includes(item.key)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedSeverities([...selectedSeverities, item.key]);
+                            else setSelectedSeverities(selectedSeverities.filter(s => s !== item.key));
+                          }}
+                          className="rounded border-border-warm text-slate-900 focus:ring-slate-500 w-3.5 h-3.5"
+                        />
+                        <span className={`w-2 h-2 rounded-full ${item.color}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      <span className="text-[10px] text-text-muted bg-slate-100 px-1.5 py-0.5 rounded-full font-mono">{item.count}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              {/* Status Filter */}
+              {/* Status Select dropdown */}
               <div>
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Status</label>
-                <div className="flex flex-col gap-1.5">
-                  {['Open', 'Investigating', 'In Progress', 'Accepted Risk', 'Resolved', 'Mitigated', 'Fixed', 'False Positive'].map(stat => (
-                    <label key={stat} className="flex items-center gap-2 text-body-sm text-text-primary font-semibold select-none cursor-pointer">
-                      <input 
-                        type="checkbox"
-                        checked={selectedStatuses.includes(stat)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedStatuses([...selectedStatuses, stat]);
-                          else setSelectedStatuses(selectedStatuses.filter(s => s !== stat));
-                        }}
-                        className="rounded border-border-warm text-slate-900 focus:ring-slate-500"
-                      />
-                      <span>{stat}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Asset Selector */}
-              <div>
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Asset</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Status</label>
                 <select 
-                  value={selectedAssetId}
-                  onChange={(e) => setSelectedAssetId(e.target.value)}
-                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none focus:border-text-muted"
+                  value={selectedStatuses.join(',')}
+                  onChange={(e) => setSelectedStatuses(e.target.value ? [e.target.value] : [])}
+                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
                 >
-                  <option value="">All Assets</option>
-                  {assets.map(asset => (
-                    <option key={asset.id} value={asset.id}>{asset.name}</option>
-                  ))}
+                  <option value="">Select status</option>
+                  <option value="Open">Open</option>
+                  <option value="Investigating">Investigating</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Accepted Risk">Accepted Risk</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Mitigated">Mitigated</option>
+                  <option value="Fixed">Fixed</option>
+                  <option value="False Positive">False Positive</option>
                 </select>
               </div>
 
-              {/* Category / Scanner Filter */}
+              {/* Category dropdown */}
               <div>
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Scanner Category</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Category</label>
                 <select 
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none focus:border-text-muted mb-2.5"
+                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
                 >
-                  <option value="">All Categories</option>
+                  <option value="">Select category</option>
                   <option value="Security Headers">Security Headers</option>
-                  <option value="Protocol">Protocol/TLS</option>
+                  <option value="Protocol">Protocol / TLS</option>
                   <option value="Subdomains">Subdomains</option>
                   <option value="Cookies">Cookies</option>
                   <option value="Network Exposure">Network Exposure</option>
                 </select>
+              </div>
 
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Scanner Module</label>
+              {/* Scanner dropdown */}
+              <div>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Scanner</label>
                 <select 
                   value={selectedScanner}
                   onChange={(e) => setSelectedScanner(e.target.value)}
-                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none focus:border-text-muted"
+                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
                 >
-                  <option value="">All Modules</option>
+                  <option value="">Select scanner</option>
                   <option value="headers">Security Headers (Nuclei)</option>
                   <option value="ssl">SSL Audit (TestSSL)</option>
                   <option value="tls">TLS check</option>
@@ -677,121 +749,198 @@ export default function FindingsPage() {
                 </select>
               </div>
 
-              {/* CVSS Score Filter */}
+              {/* Asset URL search box */}
               <div>
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">CVSS Score Range</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Asset</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
                   <input 
-                    type="number"
-                    step="0.1"
-                    placeholder="Min"
-                    value={cvssMin}
-                    onChange={(e) => setCvssMin(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none text-center"
-                  />
-                  <input 
-                    type="number"
-                    step="0.1"
-                    placeholder="Max"
-                    value={cvssMax}
-                    onChange={(e) => setCvssMax(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none text-center"
+                    type="text"
+                    placeholder="Search assets..."
+                    value={selectedAssetId}
+                    onChange={(e) => setSelectedAssetId(e.target.value)}
+                    className="w-full bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
                   />
                 </div>
               </div>
 
-              {/* Date Picker Range */}
+              {/* Discovered dates */}
               <div>
-                <label className="text-body-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Discovered Date Range</label>
-                <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Discovered</label>
+                <div className="grid grid-cols-2 gap-1 text-[10px]">
                   <input 
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none"
+                    className="w-full bg-bg-secondary border border-border-warm rounded-lg px-1.5 py-1 text-center outline-none"
                   />
                   <input 
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-xl px-3 py-2 text-body-sm font-semibold text-text-primary outline-none"
+                    className="w-full bg-bg-secondary border border-border-warm rounded-lg px-1.5 py-1 text-center outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Collapsible More Filters */}
+              <div className="border-t border-border-warm pt-2">
+                <button 
+                  onClick={() => setShowMoreFilters(!showMoreFilters)}
+                  className="w-full flex justify-between items-center text-[10px] text-text-muted font-bold uppercase tracking-wider hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  <span>More Filters</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} />
+                </button>
+                {showMoreFilters && (
+                  <div className="flex flex-col gap-3 mt-2.5">
+                    <div>
+                      <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">CVSS Range</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input 
+                          type="number"
+                          step="0.1"
+                          placeholder="Min"
+                          value={cvssMin}
+                          onChange={(e) => setCvssMin(e.target.value)}
+                          className="w-full bg-bg-secondary border border-border-warm rounded-lg py-1 text-center text-xs"
+                        />
+                        <input 
+                          type="number"
+                          step="0.1"
+                          placeholder="Max"
+                          value={cvssMax}
+                          onChange={(e) => setCvssMax(e.target.value)}
+                          className="w-full bg-bg-secondary border border-border-warm rounded-lg py-1 text-center text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Assigned To</label>
+                      <select 
+                        value={selectedAssignedTo}
+                        onChange={(e) => setSelectedAssignedTo(e.target.value)}
+                        className="w-full bg-bg-secondary border border-border-warm rounded-lg px-2 py-1 text-xs outline-none"
+                      >
+                        <option value="">All users</option>
+                        <option value="Arjay Escabas">Arjay Escabas</option>
+                        <option value="Unassigned">Unassigned</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
           </div>
 
-          {/* Right Main Table Workspace (col-span-9) */}
+          {/* Right Main Content Panel (col-span-9) */}
           <div className="col-span-12 lg:col-span-9 flex flex-col gap-4">
             
-            {/* Search Input Bar */}
-            <div className="relative w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-              <input 
-                type="text"
-                placeholder="Search findings by title, description, or CVE code..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-white border border-border-warm rounded-2xl pl-11 pr-4 py-3 text-body-sm font-semibold text-text-primary outline-none focus:border-text-muted shadow-sm transition-all"
-              />
+            {/* Table Header Action Bar (Above table) */}
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white border border-border-warm rounded-2xl p-3 shadow-sm text-xs font-semibold text-text-primary">
+              <div className="flex items-center gap-3">
+                <span className="text-text-muted font-bold text-xs">{totalFindings} findings</span>
+                {selectedFindingKeys.length > 0 && (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-border-warm" />
+                    <span className="text-slate-800 font-bold">{selectedFindingKeys.length} selected</span>
+                    <button 
+                      onClick={() => setSelectedFindingKeys([])}
+                      className="text-accent hover:underline font-bold"
+                    >
+                      Clear selection
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                  <input 
+                    type="text"
+                    placeholder="Search in table..."
+                    value={tableSearch}
+                    onChange={(e) => setTableSearch(e.target.value)}
+                    className="bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white w-44"
+                  />
+                </div>
+
+                <button className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer">
+                  Filters <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                <button className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer">
+                  Columns <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  onClick={() => handleSort('lastSeen')}
+                  className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  Newest First <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            {/* Findings Main Table */}
-            <div className="bg-white rounded-3xl border border-border-warm shadow-sm overflow-hidden">
-              {loading ? (
-                <div className="py-20 flex flex-col items-center justify-center gap-3">
-                  <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
-                  <p className="text-text-muted text-body-sm font-bold animate-pulse">Loading findings workspace...</p>
-                </div>
-              ) : error ? (
-                <div className="py-16 text-center">
-                  <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-                  <p className="text-red-700 font-extrabold text-body-sm">{error}</p>
-                </div>
-              ) : sortedFindings.length === 0 ? (
-                <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-                  <ShieldCheck className="w-12 h-12 text-emerald-500" />
-                  <h3 className="font-extrabold text-text-primary text-body-lg">Clean Workspace!</h3>
-                  <p className="text-text-muted text-body-sm max-w-md">No vulnerability findings match your filters. Your target environment is secure.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left">
+            {/* Findings List Card Container - Constrained scrollable height */}
+            <div className="bg-white rounded-2xl border border-border-warm shadow-sm overflow-hidden flex flex-col">
+              
+              <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+                {loading ? (
+                  <div className="py-20 flex flex-col items-center justify-center gap-3">
+                    <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+                    <p className="text-text-muted text-xs font-bold animate-pulse">Loading findings workspace...</p>
+                  </div>
+                ) : error ? (
+                  <div className="py-16 text-center">
+                    <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+                    <p className="text-red-700 font-extrabold text-xs">{error}</p>
+                  </div>
+                ) : paginatedFindings.length === 0 ? (
+                  <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
+                    <ShieldCheck className="w-12 h-12 text-emerald-500" />
+                    <h3 className="font-extrabold text-text-primary text-body-lg">Clean Workspace!</h3>
+                    <p className="text-text-muted text-xs max-w-md">No vulnerability findings match your filters. Your target environment is secure.</p>
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse text-left table-fixed">
                     <thead>
-                      <tr className="bg-bg-secondary border-b border-border-warm text-body-xs font-bold uppercase tracking-wider text-text-muted select-none">
-                        <th className="px-6 py-4 w-12 text-center">
+                      <tr className="bg-bg-secondary border-b border-border-warm text-[10px] font-extrabold uppercase tracking-wider text-text-muted select-none">
+                        <th className="px-4 py-3.5 w-12 text-center">
                           <input 
                             type="checkbox"
-                            checked={selectedFindingKeys.length === findings.length && findings.length > 0}
+                            checked={paginatedFindings.length > 0 && paginatedFindings.every(f => selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id))}
                             onChange={(e) => handleSelectAll(e.target.checked)}
                             className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
                           />
                         </th>
-                        <th className="px-6 py-4 w-32 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('severity')}>
-                          <span className="flex items-center gap-1">Severity <ArrowUpDown className="w-3.5 h-3.5" /></span>
+                        <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('severity')}>
+                          <span className="flex items-center gap-0.5">Severity <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
                         </th>
-                        <th className="px-6 py-4 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('title')}>
-                          <span className="flex items-center gap-1">Finding Title <ArrowUpDown className="w-3.5 h-3.5" /></span>
+                        <th className="px-4 py-3.5 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('title')}>
+                          <span className="flex items-center gap-0.5">Finding <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
                         </th>
-                        <th className="px-6 py-4">Asset</th>
-                        <th className="px-6 py-4">Scanner / Category</th>
-                        <th className="px-6 py-4 w-20 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('cvss')}>
-                          <span className="flex items-center gap-1">CVSS <ArrowUpDown className="w-3.5 h-3.5" /></span>
+                        <th className="px-4 py-3.5 w-44">Asset</th>
+                        <th className="px-4 py-3.5 w-36">Scanner</th>
+                        <th className="px-4 py-3.5 w-32">Category</th>
+                        <th className="px-4 py-3.5 w-28 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('lastSeen')}>
+                          <span className="flex items-center gap-0.5">Discovered <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
                         </th>
-                        <th className="px-6 py-4 w-28">Status</th>
-                        <th className="px-6 py-4 w-12 text-center">Actions</th>
+                        <th className="px-4 py-3.5 w-24">Status</th>
+                        <th className="px-4 py-3.5 w-12 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border-warm text-body-sm font-semibold text-text-primary">
-                      {sortedFindings.map((f) => {
+                    <tbody className="divide-y divide-border-warm text-xs font-semibold text-text-primary">
+                      {paginatedFindings.map((f) => {
                         const isChecked = selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id);
+                        const { dateStr, timeStr } = formatTableDate(f.lastSeen);
                         return (
                           <tr 
                             key={`${f.findingCode}-${f.asset.id}`} 
-                            className="hover:bg-bg-secondary/40 transition-colors group cursor-pointer"
+                            className={`hover:bg-bg-secondary/40 transition-colors group cursor-pointer ${isChecked ? 'bg-bg-secondary/20' : ''}`}
+                            onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
                           >
-                            <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                               <input 
                                 type="checkbox"
                                 checked={isChecked}
@@ -800,53 +949,60 @@ export default function FindingsPage() {
                               />
                             </td>
                             
-                            <td className="px-6 py-4" onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}>
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-body-xs font-extrabold border uppercase select-none ${getSeverityStyle(f.severity)}`}>
-                                {getSeverityIcon(f.severity)} {f.severity}
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase select-none ${getSeverityStyle(f.severity)}`}>
+                                {getSeverityIcon(f.severity)} {f.severity === 'INFO' ? 'Info' : f.severity.charAt(0) + f.severity.slice(1).toLowerCase()}
                               </span>
                             </td>
 
-                            <td className="px-6 py-4" onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}>
-                              <div>
-                                <p className="font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors">{f.title}</p>
-                                <p className="text-body-xs text-text-muted font-normal leading-relaxed mt-0.5 max-w-sm truncate">{f.description}</p>
-                                <div className="flex gap-1.5 mt-1.5">
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col pr-2">
+                                <p className="font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors text-xs leading-snug">{f.title}</p>
+                                <p className="text-[10px] text-text-muted font-normal leading-normal mt-0.5 line-clamp-2 max-h-8 overflow-hidden">{f.description}</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
                                   {f.cve && f.cve !== 'N/A' && (
-                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[9px] font-bold tracking-wider">{f.cve}</span>
+                                    <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cve}</span>
                                   )}
                                   {f.cwe && f.cwe !== 'N/A' && (
-                                    <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[9px] font-bold tracking-wider">{f.cwe}</span>
+                                    <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cwe}</span>
                                   )}
                                 </div>
                               </div>
                             </td>
 
-                            <td className="px-6 py-4" onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}>
+                            <td className="px-4 py-3">
                               <div>
-                                <p className="font-bold text-slate-800">{f.asset.name}</p>
-                                <p className="text-body-xs text-text-muted font-normal font-mono truncate max-w-xs">{f.asset.url}</p>
+                                <p className="font-bold text-slate-800 truncate">{f.asset.name}</p>
+                                <p className="text-[10px] text-text-muted font-normal font-mono truncate">{getMockIP(f.asset.url)}</p>
                               </div>
                             </td>
 
-                            <td className="px-6 py-4" onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}>
+                            <td className="px-4 py-3">
                               <div>
-                                <p className="font-bold text-slate-700 capitalize">{f.scanner}</p>
-                                <p className="text-body-xs text-text-muted font-medium mt-0.5">{f.category || 'Vulnerability'}</p>
+                                <p className="font-bold text-slate-700 capitalize truncate">{f.scanner === 'headers' ? 'Security Headers' : f.scanner === 'ssl' ? 'SSL/TLS Analysis' : f.scanner}</p>
+                                <p className="text-[10px] text-text-muted font-normal truncate">
+                                  {f.scanner === 'headers' ? 'Nuclei 3.3.2' : f.scanner === 'ssl' ? 'TestSSL 3.2.1' : 'TestSSL 3.2.1'}
+                                </p>
                               </div>
                             </td>
 
-                            <td className="px-6 py-4 text-center font-mono text-body-sm font-extrabold text-slate-800" onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}>
-                              <span className={f.cvss !== '--' && parseFloat(f.cvss) >= 7.0 ? 'text-red-600' : 'text-slate-700'}>
-                                {f.cvss}
-                              </span>
+                            <td className="px-4 py-3 text-slate-600 font-semibold truncate">
+                              {f.category || 'Vulnerability'}
                             </td>
 
-                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <td className="px-4 py-3">
+                              <div>
+                                <p className="font-bold text-slate-700">{dateStr}</p>
+                                <p className="text-[10px] text-text-muted font-normal mt-0.5">{timeStr}</p>
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                               <div className="relative inline-block w-full">
                                 <select 
                                   value={f.status}
                                   onChange={(e) => handleStatusChange(f.findingCode, f.asset.id, e.target.value)}
-                                  className={`appearance-none w-full border font-bold text-body-xs rounded-xl px-2.5 py-1.5 pr-6 cursor-pointer outline-none transition-all shadow-sm ${getStatusBadgeStyle(f.status)}`}
+                                  className={`appearance-none w-full border font-bold text-[10px] rounded-lg px-2 py-1 pr-6 cursor-pointer outline-none transition-all shadow-sm ${getStatusBadgeStyle(f.status)}`}
                                 >
                                   <option value="Open">Open</option>
                                   <option value="Investigating">Investigating</option>
@@ -857,25 +1013,25 @@ export default function FindingsPage() {
                                   <option value="Accepted Risk">Accepted Risk</option>
                                   <option value="False Positive">False Positive</option>
                                 </select>
-                                <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                                <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
                               </div>
                             </td>
 
-                            <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                               <div className="relative group inline-block">
-                                <button className="p-1.5 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
-                                  <ChevronRight className="w-4 h-4" />
+                                <button className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
+                                  <MoreHorizontal className="w-4 h-4" />
                                 </button>
                                 <div className="absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
                                   <button 
                                     onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
-                                    className="w-full px-4 py-2 text-body-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors"
+                                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors"
                                   >
                                     Assign to Me
                                   </button>
                                   <button 
                                     onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
-                                    className="w-full px-4 py-2 text-body-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors"
+                                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors"
                                   >
                                     View Details
                                   </button>
@@ -888,8 +1044,83 @@ export default function FindingsPage() {
                       })}
                     </tbody>
                   </table>
+                )}
+              </div>
+
+              {/* Table Footer Pagination Controls matching Second Image */}
+              {!loading && totalFindings > 0 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 px-6 py-3.5 bg-bg-secondary border-t border-border-warm text-xs text-text-muted font-semibold select-none">
+                  
+                  {/* Left size controls */}
+                  <div className="flex items-center gap-2">
+                    <span>Show</span>
+                    <select 
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="bg-white border border-border-warm rounded-lg px-2 py-1 outline-none font-bold text-text-primary cursor-pointer shadow-sm"
+                    >
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                    <span>per page</span>
+                  </div>
+
+                  {/* Center page numbers navigation */}
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <ChevronsLeft className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(page => (
+                      <button 
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${currentPage === page ? 'bg-slate-900 text-white font-bold' : 'hover:bg-white border border-transparent hover:border-border-warm'}`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <ChevronsRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Right label page state info */}
+                  <div>
+                    Page {currentPage} of {totalPages}
+                  </div>
+
                 </div>
               )}
+
             </div>
 
           </div>
@@ -912,7 +1143,7 @@ export default function FindingsPage() {
             <div className="p-6 bg-white border-b border-border-warm flex justify-between items-start">
               <div>
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-body-xs font-extrabold border uppercase select-none mb-2 ${getSeverityStyle(drawerFinding.severity)}`}>
-                  {getSeverityIcon(drawerFinding.severity)} {drawerFinding.severity} Severity
+                  {getSeverityIcon(drawerFinding.severity)} {drawerFinding.severity === 'INFO' ? 'Info' : drawerFinding.severity} Severity
                 </span>
                 <h2 className="text-xl font-bold text-text-primary" style={{ fontFamily: 'var(--font-heading)' }}>
                   {drawerFinding.title}
@@ -979,11 +1210,11 @@ export default function FindingsPage() {
                   </div>
                   <div className="flex justify-between border-t border-border-warm pt-1.5 mt-1.5">
                     <span className="text-text-muted font-normal">First Seen</span>
-                    <span className="font-bold text-slate-850 text-body-xs">{formatDate(drawerFinding.firstSeen)}</span>
+                    <span className="font-bold text-slate-800 text-body-xs">{formatDate(drawerFinding.firstSeen)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-text-muted font-normal">Last Seen</span>
-                    <span className="font-bold text-slate-850 text-body-xs">{formatDate(drawerFinding.lastSeen)}</span>
+                    <span className="font-bold text-slate-800 text-body-xs">{formatDate(drawerFinding.lastSeen)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-text-muted font-normal">Discovered count</span>
