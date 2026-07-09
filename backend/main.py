@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.session import engine, Base
 from core.config import settings
-from api.routes import auth, scans, assets, statistics, modules, jobs
+from api.routes import auth, scans, assets, statistics, modules, jobs, findings
 
 # Automatically create PostgreSQL tables at start if they do not exist
 Base.metadata.create_all(bind=engine)
@@ -91,6 +91,7 @@ app.include_router(assets.router, prefix=settings.API_V1_STR)
 app.include_router(statistics.router, prefix=settings.API_V1_STR)
 app.include_router(modules.router, prefix=settings.API_V1_STR)
 app.include_router(jobs.router, prefix=settings.API_V1_STR)
+app.include_router(findings.router, prefix=settings.API_V1_STR)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True)

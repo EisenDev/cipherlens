@@ -12,10 +12,10 @@ if SCANNER_PATH not in sys.path:
     sys.path.insert(0, SCANNER_PATH)
 
 try:
-    from database.models import Scan, ScanModule, ScanLog, Asset
+    from database.models import Scan, ScanModule, ScanLog, Asset, ScanResult
 except ImportError:
     # Handle direct import fallback if path differs
-    from backend.database.models import Scan, ScanModule, ScanLog, Asset
+    from backend.database.models import Scan, ScanModule, ScanLog, Asset, ScanResult
 
 from manager import ScannerManager
 from result import ScannerStatus
@@ -148,6 +148,9 @@ class ScanExecutionService:
                     record.duration = duration
                     record.logs = f"Exit code: {getattr(result, 'exit_code', 0) or getattr(result, 'tool_exit_code', 0)}\n" + (result.error_message or "") + "\n" + (result.tool_raw_output or "")
                     
+                    scan_rec = self.db.query(Scan).filter(Scan.id == scan_id).first()
+                    asset_id = scan_rec.assetId if scan_rec else None
+
                     if result.status == ScannerStatus.SUCCESS:
                         record.status = "COMPLETED"
                         any_success = True
@@ -158,8 +161,22 @@ class ScanExecutionService:
                             f"Module '{mod_name}' completed successfully in {duration}s. (Findings: {len(result.findings)})"
                         )
                         # Save findings
-                        from database.models import ScanResult
                         for f in result.findings:
+                            status = "Open"
+                            assignedTo = None
+                            notes = None
+                            resolvedAt = None
+                            if asset_id:
+                                prev_finding = self.db.query(ScanResult)\
+                                    .join(Scan, ScanResult.scanId == Scan.id)\
+                                    .filter(Scan.assetId == asset_id, ScanResult.findingCode == f.id)\
+                                    .first()
+                                if prev_finding:
+                                    status = prev_finding.status
+                                    assignedTo = prev_finding.assignedTo
+                                    notes = prev_finding.notes
+                                    resolvedAt = prev_finding.resolvedAt
+
                             finding = ScanResult(
                                 scanId=scan_id,
                                 findingCode=f.id,
@@ -174,7 +191,11 @@ class ScanExecutionService:
                                 tool=result.metadata.get("tool") or getattr(result, 'tool_command', mod_name) or mod_name,
                                 category=f.category,
                                 references=json.dumps(f.references) if f.references else None,
-                                rawData=json.dumps(f.raw_data) if f.raw_data else None
+                                rawData=json.dumps(f.raw_data) if f.raw_data else None,
+                                status=status,
+                                assignedTo=assignedTo,
+                                notes=notes,
+                                resolvedAt=resolvedAt
                             )
                             self.db.add(finding)
                     else:
@@ -187,8 +208,22 @@ class ScanExecutionService:
                         )
                         # Save findings if any were generated despite the failure
                         if result.findings:
-                            from database.models import ScanResult
                             for f in result.findings:
+                                status = "Open"
+                                assignedTo = None
+                                notes = None
+                                resolvedAt = None
+                                if asset_id:
+                                    prev_finding = self.db.query(ScanResult)\
+                                        .join(Scan, ScanResult.scanId == Scan.id)\
+                                        .filter(Scan.assetId == asset_id, ScanResult.findingCode == f.id)\
+                                        .first()
+                                    if prev_finding:
+                                        status = prev_finding.status
+                                        assignedTo = prev_finding.assignedTo
+                                        notes = prev_finding.notes
+                                        resolvedAt = prev_finding.resolvedAt
+
                                 finding = ScanResult(
                                     scanId=scan_id,
                                     findingCode=f.id,
@@ -203,7 +238,11 @@ class ScanExecutionService:
                                     tool=result.metadata.get("tool") or getattr(result, 'tool_command', mod_name) or mod_name,
                                     category=f.category,
                                     references=json.dumps(f.references) if f.references else None,
-                                    rawData=json.dumps(f.raw_data) if f.raw_data else None
+                                    rawData=json.dumps(f.raw_data) if f.raw_data else None,
+                                    status=status,
+                                    assignedTo=assignedTo,
+                                    notes=notes,
+                                    resolvedAt=resolvedAt
                                 )
                                 self.db.add(finding)
                 except Exception as e:

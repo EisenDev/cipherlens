@@ -4,6 +4,7 @@ import SignupPage from './pages/SignupPage';
 import ScansPage from './pages/ScansPage';
 import ProgressPage from './pages/ProgressPage';
 import ResultsPage from './pages/ResultsPage';
+import FindingsPage from './pages/FindingsPage';
 import { LoginModal } from './components/LoginModal';
 
 /**
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/scans" element={<ScansPage />} />
+        <Route path="/findings" element={<FindingsPage />} />
         <Route path="/scan/:id/progress" element={<ProgressPage />} />
         <Route path="/scan/:id/results" element={<ResultsPage />} />
       </Routes>

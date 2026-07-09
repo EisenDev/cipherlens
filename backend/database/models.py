@@ -135,6 +135,17 @@ class ScanResult(Base):
     category = Column(String, nullable=True)
     references = Column(Text, nullable=True) # JSON list of strings
     rawData = Column(Text, nullable=True) # JSON raw response dictionary
+
+    # Centralized vulnerability management operational fields
+    status = Column(String, default="Open", nullable=False) # Open, Investigating, In Progress, Accepted Risk, Mitigated, Fixed, False Positive, Reopened, Closed
+    assignedTo = Column(String, nullable=True) # User email or name
+    cvss = Column(Text, nullable=True) # For float, we can use Text/String or Float, let's use String/Text or Float. Wait, let's use String or Float. Let's use Column(Text, nullable=True) to allow CVSS vector or score.
+    cve = Column(String, nullable=True)
+    cwe = Column(String, nullable=True)
+    mitreAttack = Column(String, nullable=True)
+    owaspMapping = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    resolvedAt = Column(DateTime(timezone=True), nullable=True)
     
     createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
 
