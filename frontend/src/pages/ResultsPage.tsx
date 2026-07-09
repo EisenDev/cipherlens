@@ -701,15 +701,6 @@ export default function ResultsPage() {
                     </p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => {
-                    const el = document.getElementById('ai-analysis-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white font-bold text-body-xs rounded-xl flex-shrink-0 cursor-pointer shadow-sm transition-colors"
-                >
-                  View Summary
-                </button>
               </div>
             </div>
 
