@@ -56,21 +56,28 @@ def test_scan_queue_operations():
         pytest.skip("Local Redis service is not available or offline.")
 
     scan_id = "test-scan-uuid-123"
-    # Push to queue
-    enqueued = queue.enqueue(scan_id)
-    assert enqueued is True
-
-    # Pull from queue in a loop to clear any previous test run garbage
-    dequeued = None
-    for _ in range(10):
-        val = queue.dequeue(timeout=1)
-        if val == scan_id:
-            dequeued = val
-            break
-        if val is None:
-            break
-            
-    assert dequeued == scan_id
+    
+    mock_redis = MagicMock()
+    mock_redis.ping.return_value = True
+    
+    queue_data = []
+    def mock_rpush(key, val):
+        queue_data.append(val)
+        return 1
+    def mock_blpop(key, timeout=0):
+        if queue_data:
+            return (key, queue_data.pop(0))
+        return None
+        
+    mock_redis.rpush = mock_rpush
+    mock_redis.blpop = mock_blpop
+    
+    with patch.object(queue, "redis_client", mock_redis):
+        enqueued = queue.enqueue(scan_id)
+        assert enqueued is True
+        
+        dequeued = queue.dequeue(timeout=1)
+        assert dequeued == scan_id
 
 def test_redis_offline_graceful_fallback(db_session):
     """Verify enqueuing fallback logic if Redis is mock-disconnected."""

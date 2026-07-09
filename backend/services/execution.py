@@ -237,10 +237,9 @@ class ScanExecutionService:
                     scan.status = "COMPLETED"
                     self._add_log(scan_id, "INFO", f"Security scan completed successfully in {duration_total}s.")
                     try:
-                        scan.score = self._calculate_scan_score(scan_id)
-                        self._add_log(scan_id, "INFO", f"Security Score calculated: {scan.score}/100")
-                    except Exception as score_err:
-                        logger.error(f"Failed to calculate security score for scan {scan_id}: {score_err}")
+                        self._run_post_processing(scan_id)
+                    except Exception as post_err:
+                        logger.error(f"Failed scan post-processing for scan {scan_id}: {post_err}")
             else:
                 # Cancelled finalize
                 scan.completedAt = datetime.now(timezone.utc)
@@ -266,10 +265,35 @@ class ScanExecutionService:
         )
         self.db.add(log)
 
-    def _calculate_scan_score(self, scan_id: str) -> int:
+    def _run_post_processing(self, scan_id: str) -> None:
         """
-        Delegates to the canonical CipherLens Security Scoring Engine v3.
+        Executes the dynamic Scan Post Processing Pipeline:
+        1. Normalize Findings
+        2. Deduplicate Findings
+        3. Validate False Positives
+        4. Calculate Coverage
+        5. Calculate Confidence
+        6. Calculate Security Posture
+        7. Generate AI Summary
+        8. Persist Metrics
         """
         from scoring_engine.scoring import score_from_db
+        
+        # Run backend scoring engine to normalize, deduplicate, validate,
+        # calculate coverage/confidence/posture/AI summary.
         result = score_from_db(self.db, scan_id)
-        return result.overall_score
+        
+        # Persist metrics to database Scan record
+        scan = self.db.query(Scan).filter(Scan.id == scan_id).first()
+        if scan:
+            scan.score = result.overall_score
+            scan.coverage = result.coverage_score
+            scan.confidence = result.confidence_score
+            scan.security_posture = result.posture
+            scan.recommendation = result.recommendation
+            scan.summary = result.ai_summary
+            scan.generated_at = datetime.now(timezone.utc)
+            scan.processing_version = "v3.0.0"
+            self.db.add(scan)
+            self.db.commit()
+            self._add_log(scan_id, "INFO", f"Post-processing pipeline completed successfully: Posture={scan.security_posture}, Score={scan.score}, Confidence={scan.confidence}%, Coverage={scan.coverage}%.")

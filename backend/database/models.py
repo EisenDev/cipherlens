@@ -67,6 +67,15 @@ class Scan(Base):
     jobId = Column(String, nullable=True)
     currentModule = Column(String, nullable=True)
     progress = Column(Integer, default=0, nullable=False)
+
+    # Post-processing posture metrics
+    coverage = Column(Integer, nullable=True)
+    confidence = Column(Integer, nullable=True)
+    security_posture = Column(String, nullable=True)
+    recommendation = Column(String, nullable=True)
+    summary = Column(String, nullable=True)
+    generated_at = Column(DateTime(timezone=True), nullable=True)
+    processing_version = Column(String, nullable=True)
     
     createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
     updatedAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False)

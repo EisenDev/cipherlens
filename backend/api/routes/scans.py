@@ -769,6 +769,27 @@ def get_scan_status(
         confidence_score = scoring_res.confidence_score
         coverage_score = scoring_res.coverage_score
         recommendation = scoring_res.recommendation
+
+        # Override with persisted DB columns if scan is completed and columns are available
+        if scan.status == "COMPLETED" and scan.coverage is not None:
+            overall_score = scan.score if scan.score is not None else overall_score
+            posture = scan.security_posture if scan.security_posture is not None else posture
+            ai_summary = scan.summary if scan.summary is not None else ai_summary
+            confidence_score = scan.confidence if scan.confidence is not None else confidence_score
+            coverage_score = scan.coverage if scan.coverage is not None else coverage_score
+            recommendation = scan.recommendation if scan.recommendation is not None else recommendation
+            
+            # Map colors and icons based on persisted posture
+            posture_map = {
+                "Excellent": {"color": "green", "icon": "shield-check"},
+                "Good": {"color": "blue", "icon": "shield-check"},
+                "Fair": {"color": "yellow", "icon": "shield-alert"},
+                "Needs Attention": {"color": "orange", "icon": "shield-alert"},
+                "Critical": {"color": "red", "icon": "shield-x"}
+            }
+            cfg = posture_map.get(posture, {"color": "red", "icon": "shield-x"})
+            posture_color = cfg["color"]
+            posture_icon = cfg["icon"]
     except Exception as e:
         overall_score = scan.score or 100
         posture = "Excellent" if overall_score >= 95 else "Good" if overall_score >= 88 else "Fair"

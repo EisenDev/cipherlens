@@ -85,6 +85,11 @@ class ScanResponse(BaseModel):
     duration: Optional[int] = None
     createdAt: datetime
     target: TargetSchema
+    coverage: Optional[int] = None
+    confidence: Optional[int] = None
+    security_posture: Optional[str] = None
+    recommendation: Optional[str] = None
+    summary: Optional[str] = None
 
     class Config:
         from_attributes = True
