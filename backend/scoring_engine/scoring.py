@@ -1386,7 +1386,7 @@ def score_from_db(db_session: Any, scan_id: str) -> ScoringResult:
     from database.models import Scan, ScanResult, ScanModule  # local import
 
     scan = db_session.query(Scan).filter(Scan.id == scan_id).first()
-    target_url = scan.asset.url if (scan and scan.targetId) else None
+    target_url = scan.asset.url if (scan and scan.assetId) else None
 
     all_modules = db_session.query(ScanModule).filter(
         ScanModule.scanId == scan_id
