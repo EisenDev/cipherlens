@@ -168,19 +168,7 @@ export default function ScansPage() {
     return { dateFormatted, timeFormatted };
   };
 
-  const getScoreColor = (score: number | null) => {
-    if (score === null) return 'stroke-slate-200';
-    if (score >= 80) return 'stroke-emerald-500';
-    if (score >= 50) return 'stroke-amber-500';
-    return 'stroke-red-500';
-  };
 
-  const getScoreTextColor = (score: number | null) => {
-    if (score === null) return 'text-slate-400';
-    if (score >= 80) return 'text-emerald-600';
-    if (score >= 50) return 'text-amber-500';
-    return 'text-red-500';
-  };
 
   // Render placeholders for loading skeletons
   const renderSkeletons = () => (
@@ -546,10 +534,9 @@ export default function ScansPage() {
           <div className="w-full">
             {/* Table Headers sitting directly on page background */}
             <div className="grid grid-cols-12 gap-4 px-6 py-3 text-text-muted font-bold uppercase tracking-wider text-body-sm select-none" style={{ fontFamily: 'var(--font-body)' }}>
-              <div className="col-span-3">Target</div>
+              <div className="col-span-4">Target</div>
               <div className="col-span-2">Scan Type</div>
-              <div className="col-span-1">Status</div>
-              <div className="col-span-2">Score</div>
+              <div className="col-span-2">Status</div>
               <div className="col-span-2">Started At</div>
               <div className="col-span-1">Duration</div>
               <div className="col-span-1 text-right">Actions</div>
@@ -571,8 +558,8 @@ export default function ScansPage() {
                 return (
                   <div key={scan.id} className="grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-bg-secondary transition-colors group text-xs text-text-primary">
                     
-                    {/* Target column (col-span-3) */}
-                    <div className="col-span-3 flex items-center">
+                    {/* Target column (col-span-4) */}
+                    <div className="col-span-4 flex items-center">
                       <div className="mr-3 text-slate-400 flex-shrink-0">
                         {scan.target.type === 'REPOSITORY' ? (
                           <svg className="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
@@ -620,8 +607,8 @@ export default function ScansPage() {
                       </span>
                     </div>
 
-                    {/* Status column (col-span-1) */}
-                    <div className="col-span-1">
+                    {/* Status column (col-span-2) */}
+                    <div className="col-span-2">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-body-sm border select-none ${
                         scan.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-250' :
                         scan.status === 'RUNNING' ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse' :
@@ -638,37 +625,6 @@ export default function ScansPage() {
                         }`} />
                         {scan.status.charAt(0) + scan.status.slice(1).toLowerCase()}
                       </span>
-                    </div>
-
-                    {/* Score column (col-span-2) */}
-                    <div className="col-span-2">
-                      {scan.score !== null ? (
-                        <div className="flex items-center gap-2">
-                          <div className="relative w-6 h-6 flex-shrink-0">
-                            <svg className="w-6 h-6 -rotate-90" viewBox="0 0 36 36">
-                              <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#F5F4F0" strokeWidth="4" />
-                              <circle
-                                cx="18"
-                                cy="18"
-                                r="15.9155"
-                                fill="none"
-                                strokeWidth="4"
-                                strokeDasharray={`${scan.score} ${100 - scan.score}`}
-                                className={`transition-all duration-500 ${getScoreColor(scan.score)}`}
-                              />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center text-body-xs font-bold font-bold text-text-primary">
-                              {scan.score}
-                            </div>
-                          </div>
-                          <span className="font-semibold text-text-primary" style={{ fontFamily: 'var(--font-body)' }}>
-                            <span className={getScoreTextColor(scan.score)}>{scan.score}</span>
-                            <span className="text-text-muted font-normal text-body-sm"> / 100</span>
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-text-muted font-bold font-mono">--</span>
-                      )}
                     </div>
 
                     {/* Started At column (col-span-2) */}

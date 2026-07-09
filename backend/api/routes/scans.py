@@ -785,6 +785,7 @@ def get_scan_status(
                 "Good": {"color": "blue", "icon": "shield-check"},
                 "Fair": {"color": "yellow", "icon": "shield-alert"},
                 "Needs Attention": {"color": "orange", "icon": "shield-alert"},
+                "Poor": {"color": "red", "icon": "shield-x"},
                 "Critical": {"color": "red", "icon": "shield-x"}
             }
             cfg = posture_map.get(posture, {"color": "red", "icon": "shield-x"})

@@ -565,11 +565,11 @@ MAX_SINGLE_PENALTY: float = 9.0
 
 # Posture bands — score → label
 POSTURE_THRESHOLDS: List[Tuple[int, str]] = [
-    (95, "Excellent"),
-    (88, "Good"),
-    (75, "Fair"),
-    (60, "Needs Attention"),
-    (40, "Poor"),
+    (80, "Excellent"),
+    (70, "Good"),
+    (60, "Fair"),
+    (50, "Needs Attention"),
+    (35, "Poor"),
     (0,  "Critical"),
 ]
 
@@ -1287,12 +1287,20 @@ def calculate_score(
     confidence_score -= min(10, weak_scanner_deduction)
     confidence_score = max(0, min(100, confidence_score))
 
+    # Determine posture based on confidence percentage
+    posture = "Critical"
+    for threshold, label in POSTURE_THRESHOLDS:
+        if confidence_score >= threshold:
+            posture = label
+            break
+
     # Posture config map
     posture_map = {
         "Excellent": {"color": "green", "icon": "shield-check", "rec": "Continue monitoring and maintain current security controls."},
         "Good": {"color": "blue", "icon": "shield-check", "rec": "Review minor security header improvements and patch low-risk items."},
         "Fair": {"color": "yellow", "icon": "shield-alert", "rec": "Prioritize patching High and Medium risk vulnerabilities."},
         "Needs Attention": {"color": "orange", "icon": "shield-alert", "rec": "Prioritize patching High and Medium risk vulnerabilities."},
+        "Poor": {"color": "red", "icon": "shield-x", "rec": "Immediate remediation is recommended to improve security posture."},
         "Critical": {"color": "red", "icon": "shield-x", "rec": "Immediate remediation is recommended for critical exploitable vulnerabilities."}
     }
     cfg = posture_map.get(posture, {"color": "red", "icon": "shield-x", "rec": "Immediate remediation is recommended."})
@@ -1315,6 +1323,7 @@ def calculate_score(
         "Good": "demonstrates a strong and mature security posture with robust controls.",
         "Fair": "has a fair security posture but displays several configuration issues that require attention.",
         "Needs Attention": "requires active attention to address key security vulnerabilities and improve resilience.",
+        "Poor": "presents a poor security posture with significant vulnerabilities requiring immediate remediation.",
         "Critical": "presents a highly critical security posture with multiple active exposures."
     }.get(posture, "demonstrates a variable security posture.")
 
