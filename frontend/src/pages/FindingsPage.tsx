@@ -96,6 +96,7 @@ export default function FindingsPage() {
     assetsWithActive: 0
   });
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
@@ -112,6 +113,23 @@ export default function FindingsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // Debounced input states for text/number fields to prevent blinking while typing
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedAssetId, setDebouncedAssetId] = useState('');
+  const [debouncedCvssMin, setDebouncedCvssMin] = useState('');
+  const [debouncedCvssMax, setDebouncedCvssMax] = useState('');
+
+  // Handle debouncing
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedAssetId(selectedAssetId);
+      setDebouncedCvssMin(cvssMin);
+      setDebouncedCvssMax(cvssMax);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search, selectedAssetId, cvssMin, cvssMax]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -133,24 +151,27 @@ export default function FindingsPage() {
   const [aiMode, setAiMode] = useState<'explain' | 'cve' | 'checklist' | 'priority' | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const fetchFindings = () => {
+
+  const fetchFindings = (isInitial: boolean = false) => {
     if (!authAccessToken) return;
     setLoading(true);
+    if (isInitial) {
+      setInitialLoading(true);
+    }
 
     const params = new URLSearchParams();
     
-    // Combine search and tableSearch
-    const combinedSearch = search || tableSearch;
+    const combinedSearch = debouncedSearch || tableSearch;
     if (combinedSearch) params.append('search', combinedSearch);
     
     if (selectedSeverities.length > 0) params.append('severities', selectedSeverities.join(','));
     if (selectedStatuses.length > 0) params.append('statuses', selectedStatuses.join(','));
-    if (selectedAssetId) params.append('asset_id', selectedAssetId);
+    if (debouncedAssetId) params.append('asset_id', debouncedAssetId);
     if (selectedCategory) params.append('category', selectedCategory);
     if (selectedScanner) params.append('scanner', selectedScanner);
     if (selectedAssignedTo) params.append('assigned_to', selectedAssignedTo);
-    if (cvssMin) params.append('cvss_min', cvssMin);
-    if (cvssMax) params.append('cvss_max', cvssMax);
+    if (debouncedCvssMin) params.append('cvss_min', debouncedCvssMin);
+    if (debouncedCvssMax) params.append('cvss_max', debouncedCvssMax);
     if (dateFrom) params.append('date_from', dateFrom);
     if (dateTo) params.append('date_to', dateTo);
 
@@ -165,36 +186,29 @@ export default function FindingsPage() {
       })
       .finally(() => {
         setLoading(false);
+        setInitialLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchFindings();
+    const isInitial = findings.length === 0;
+    fetchFindings(isInitial);
     setCurrentPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     authAccessToken,
     selectedSeverities,
     selectedStatuses,
-    selectedAssetId,
+    debouncedAssetId,
     selectedCategory,
     selectedScanner,
     selectedAssignedTo,
-    cvssMin,
-    cvssMax,
+    debouncedCvssMin,
+    debouncedCvssMax,
     dateFrom,
-    dateTo
+    dateTo,
+    debouncedSearch
   ]);
-
-  // Debounced search trigger
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchFindings();
-      setCurrentPage(1);
-    }, 400);
-    return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, tableSearch]);
 
   // Sort logic
   const handleSort = (field: 'severity' | 'title' | 'cvss' | 'lastSeen' | 'occurrences') => {
@@ -987,7 +1001,7 @@ export default function FindingsPage() {
           <div className="bg-white rounded-2xl border border-border-warm shadow-sm overflow-hidden flex flex-col">
             
             <div className="overflow-x-auto max-h-[580px] overflow-y-auto">
-              {loading ? (
+              {initialLoading ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-3">
                   <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
                   <p className="text-text-muted text-xs font-bold animate-pulse">Loading findings workspace...</p>
@@ -997,192 +1011,202 @@ export default function FindingsPage() {
                   <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
                   <p className="text-red-700 font-extrabold text-xs">{error}</p>
                 </div>
-              ) : paginatedFindings.length === 0 ? (
-                <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-                  <ShieldCheck className="w-12 h-12 text-emerald-500" />
-                  <h3 className="font-extrabold text-text-primary text-body-lg">Clean Workspace!</h3>
-                  <p className="text-text-muted text-xs max-w-md">No vulnerability findings match your filters. Your target environment is secure.</p>
-                </div>
               ) : (
-                <table className="w-full border-collapse text-left table-fixed min-w-[1280px]">
-                  <thead>
-                    <tr className="bg-bg-secondary border-b border-border-warm text-[10px] font-extrabold uppercase tracking-wider text-text-muted select-none">
-                      <th className="px-4 py-3.5 w-12 text-center">
-                        <input 
-                          type="checkbox"
-                          checked={paginatedFindings.length > 0 && paginatedFindings.every(f => selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id))}
-                          onChange={(e) => handleSelectAll(e.target.checked)}
-                          className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
-                        />
-                      </th>
-                      <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('severity')}>
-                        <span className="flex items-center gap-0.5">Severity <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                      </th>
-                      <th className="px-4 py-3.5 w-80 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('title')}>
-                        <span className="flex items-center gap-0.5">Finding <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                      </th>
-                      <th className="px-4 py-3.5 w-44">Asset</th>
-                      <th className="px-4 py-3.5 w-40">Scanner</th>
-                      <th className="px-4 py-3.5 w-36">Category</th>
-                      <th className="px-4 py-3.5 w-20 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('cvss')}>
-                        <span className="flex items-center gap-0.5">CVSS <span className="text-[10px] text-text-muted select-none">ⓘ</span></span>
-                      </th>
-                      <th className="px-4 py-3.5 w-28">Status</th>
-                      <th className="px-4 py-3.5 w-28">First Seen</th>
-                      <th className="px-4 py-3.5 w-28 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('lastSeen')}>
-                        <span className="flex items-center gap-0.5">Last Seen <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                      </th>
-                      <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('occurrences')}>
-                        <span className="flex items-center gap-0.5">Occurrences <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                      </th>
-                      <th className="px-4 py-3.5 w-40">Assigned To</th>
-                      <th className="px-4 py-3.5 w-14 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-warm text-xs font-semibold text-text-primary">
-                    {paginatedFindings.map((f) => {
-                      const isChecked = selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id);
-                      const firstDate = formatTableDate(f.firstSeen);
-                      const lastDate = formatTableDate(f.lastSeen);
-                      return (
-                        <tr 
-                          key={`${f.findingCode}-${f.asset.id}`} 
-                          className={`hover:bg-bg-secondary/40 transition-colors group cursor-pointer ${isChecked ? 'bg-bg-secondary/20' : ''}`}
-                          onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
-                        >
-                          <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                <div className={`relative transition-opacity duration-200 ${loading ? 'opacity-65 pointer-events-none' : 'opacity-100'}`}>
+                  {/* Top subtle progress indicator bar */}
+                  {loading && (
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-100 overflow-hidden z-10 animate-pulse">
+                      <div className="h-full bg-slate-800 w-full animate-pulse" />
+                    </div>
+                  )}
+
+                  {paginatedFindings.length === 0 ? (
+                    <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
+                      <ShieldCheck className="w-12 h-12 text-emerald-500" />
+                      <h3 className="font-extrabold text-text-primary text-body-lg">Clean Workspace!</h3>
+                      <p className="text-text-muted text-xs max-w-md">No vulnerability findings match your filters. Your target environment is secure.</p>
+                    </div>
+                  ) : (
+                    <table className="w-full border-collapse text-left table-fixed min-w-[1280px]">
+                      <thead>
+                        <tr className="bg-bg-secondary border-b border-border-warm text-[10px] font-extrabold uppercase tracking-wider text-text-muted select-none">
+                          <th className="px-4 py-3.5 w-12 text-center">
                             <input 
                               type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => handleSelectOne(e.target.checked, f.findingCode, f.asset.id)}
+                              checked={paginatedFindings.length > 0 && paginatedFindings.every(f => selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id))}
+                              onChange={(e) => handleSelectAll(e.target.checked)}
                               className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
                             />
-                          </td>
-                          
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase select-none ${getSeverityStyle(f.severity)}`}>
-                              {getSeverityIcon(f.severity)} {f.severity === 'INFO' ? 'Info' : f.severity.charAt(0) + f.severity.slice(1).toLowerCase()}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col pr-2">
-                              <p className="font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors text-xs leading-snug">{f.title}</p>
-                              <p className="text-[10px] text-text-muted font-normal leading-normal mt-0.5 line-clamp-2 max-h-8 overflow-hidden">{f.description}</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {f.cve && f.cve !== 'N/A' && (
-                                  <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cve}</span>
-                                )}
-                                {f.cwe && f.cwe !== 'N/A' && (
-                                  <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cwe}</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-bold text-slate-800 truncate">{f.asset.name}</p>
-                              <p className="text-[10px] text-text-muted font-normal font-mono truncate">{getMockIP(f.asset.url)}</p>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3 text-slate-700 truncate font-semibold">
-                            {getScannerDisplayName(f.scanner, f.category, f.module)}
-                          </td>
-
-                          <td className="px-4 py-3 text-slate-650 font-semibold truncate">
-                            {f.category || 'Vulnerability'}
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold border select-none w-10 ${getCVSSStyle(f.cvss)}`}>
-                              {f.cvss}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative inline-block w-full">
-                              <select 
-                                value={f.status}
-                                onChange={(e) => handleStatusChange(f.findingCode, f.asset.id, e.target.value)}
-                                className={`appearance-none w-full border font-bold text-[10px] rounded-lg px-2 py-1 pr-6 cursor-pointer outline-none transition-all shadow-sm ${getStatusBadgeStyle(f.status)}`}
-                              >
-                                <option value="Open">Open</option>
-                                <option value="Investigating">Investigating</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Resolved">Resolved</option>
-                                <option value="Mitigated">Mitigated</option>
-                                <option value="Fixed">Fixed</option>
-                                <option value="Accepted Risk">Accepted Risk</option>
-                                <option value="False Positive">False Positive</option>
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-bold text-slate-700">{firstDate.dateStr}</p>
-                              <p className="text-[10px] text-text-muted font-normal mt-0.5">{firstDate.timeStr}</p>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-bold text-slate-700">{lastDate.dateStr}</p>
-                              <p className="text-[10px] text-text-muted font-normal mt-0.5">{lastDate.timeStr}</p>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3 text-slate-700 font-mono font-bold text-center">
-                            {f.occurrences}
-                          </td>
-
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-2">
-                              {(() => {
-                                const initials = getInitials(f.assignedTo);
-                                const avatarBg = getAvatarBg(f.assignedTo);
-                                return (
-                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-extrabold border ${avatarBg}`}>
-                                    {initials}
-                                  </div>
-                                );
-                              })()}
-                              <span className="truncate text-xs font-semibold text-slate-700 max-w-[90px]">{f.assignedTo}</span>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative group inline-block">
-                              <button className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </button>
-                              <div className="absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
-                                <button 
-                                  onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
-                                  className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
-                                >
-                                  Assign to Me
-                                </button>
-                                <button 
-                                  onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
-                                  className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
-                                >
-                                  View Details
-                                </button>
-                              </div>
-                            </div>
-                          </td>
-
+                          </th>
+                          <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('severity')}>
+                            <span className="flex items-center gap-0.5">Severity <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                          </th>
+                          <th className="px-4 py-3.5 w-80 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('title')}>
+                            <span className="flex items-center gap-0.5">Finding <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                          </th>
+                          <th className="px-4 py-3.5 w-44">Asset</th>
+                          <th className="px-4 py-3.5 w-40">Scanner</th>
+                          <th className="px-4 py-3.5 w-36">Category</th>
+                          <th className="px-4 py-3.5 w-20 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('cvss')}>
+                            <span className="flex items-center gap-0.5">CVSS <span className="text-[10px] text-text-muted select-none">ⓘ</span></span>
+                          </th>
+                          <th className="px-4 py-3.5 w-28">Status</th>
+                          <th className="px-4 py-3.5 w-28">First Seen</th>
+                          <th className="px-4 py-3.5 w-28 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('lastSeen')}>
+                            <span className="flex items-center gap-0.5">Last Seen <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                          </th>
+                          <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('occurrences')}>
+                            <span className="flex items-center gap-0.5">Occurrences <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                          </th>
+                          <th className="px-4 py-3.5 w-40">Assigned To</th>
+                          <th className="px-4 py-3.5 w-14 text-center">Actions</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-border-warm text-xs font-semibold text-text-primary">
+                        {paginatedFindings.map((f) => {
+                          const isChecked = selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id);
+                          const firstDate = formatTableDate(f.firstSeen);
+                          const lastDate = formatTableDate(f.lastSeen);
+                          return (
+                            <tr 
+                              key={`${f.findingCode}-${f.asset.id}`} 
+                              className={`hover:bg-bg-secondary/40 transition-colors group cursor-pointer ${isChecked ? 'bg-bg-secondary/20' : ''}`}
+                              onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
+                            >
+                              <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <input 
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => handleSelectOne(e.target.checked, f.findingCode, f.asset.id)}
+                                  className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
+                                />
+                              </td>
+                              
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase select-none ${getSeverityStyle(f.severity)}`}>
+                                  {getSeverityIcon(f.severity)} {f.severity === 'INFO' ? 'Info' : f.severity.charAt(0) + f.severity.slice(1).toLowerCase()}
+                                </span>
+                              </td>
+
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col pr-2">
+                                  <p className="font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors text-xs leading-snug">{f.title}</p>
+                                  <p className="text-[10px] text-text-muted font-normal leading-normal mt-0.5 line-clamp-2 max-h-8 overflow-hidden">{f.description}</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {f.cve && f.cve !== 'N/A' && (
+                                      <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cve}</span>
+                                    )}
+                                    {f.cwe && f.cwe !== 'N/A' && (
+                                      <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cwe}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-bold text-slate-800 truncate">{f.asset.name}</p>
+                                  <p className="text-[10px] text-text-muted font-normal font-mono truncate">{getMockIP(f.asset.url)}</p>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 text-slate-700 truncate font-semibold">
+                                {getScannerDisplayName(f.scanner, f.category, f.module)}
+                              </td>
+
+                              <td className="px-4 py-3 text-slate-650 font-semibold truncate">
+                                {f.category || 'Vulnerability'}
+                              </td>
+
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold border select-none w-10 ${getCVSSStyle(f.cvss)}`}>
+                                  {f.cvss}
+                                </span>
+                              </td>
+
+                              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                <div className="relative inline-block w-full">
+                                  <select 
+                                    value={f.status}
+                                    onChange={(e) => handleStatusChange(f.findingCode, f.asset.id, e.target.value)}
+                                    className={`appearance-none w-full border font-bold text-[10px] rounded-lg px-2 py-1 pr-6 cursor-pointer outline-none transition-all shadow-sm ${getStatusBadgeStyle(f.status)}`}
+                                  >
+                                    <option value="Open">Open</option>
+                                    <option value="Investigating">Investigating</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Mitigated">Mitigated</option>
+                                    <option value="Fixed">Fixed</option>
+                                    <option value="Accepted Risk">Accepted Risk</option>
+                                    <option value="False Positive">False Positive</option>
+                                  </select>
+                                  <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-bold text-slate-700">{firstDate.dateStr}</p>
+                                  <p className="text-[10px] text-text-muted font-normal mt-0.5">{firstDate.timeStr}</p>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-bold text-slate-700">{lastDate.dateStr}</p>
+                                  <p className="text-[10px] text-text-muted font-normal mt-0.5">{lastDate.timeStr}</p>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 text-slate-700 font-mono font-bold text-center">
+                                {f.occurrences}
+                              </td>
+
+                              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-2">
+                                  {(() => {
+                                    const initials = getInitials(f.assignedTo);
+                                    const avatarBg = getAvatarBg(f.assignedTo);
+                                    return (
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-extrabold border ${avatarBg}`}>
+                                        {initials}
+                                      </div>
+                                    );
+                                  })()}
+                                  <span className="truncate text-xs font-semibold text-slate-700 max-w-[90px]">{f.assignedTo}</span>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <div className="relative group inline-block">
+                                  <button className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </button>
+                                  <div className="absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
+                                    <button 
+                                      onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
+                                      className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
+                                    >
+                                      Assign to Me
+                                    </button>
+                                    <button 
+                                      onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
+                                      className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
+                                    >
+                                      View Details
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               )}
-            </div>
 
             {/* Table Footer Pagination Controls matching Second Image */}
             {!loading && totalFindings > 0 && (
@@ -1302,6 +1326,8 @@ export default function FindingsPage() {
           </div>
 
         </div>
+
+      </div>
 
       </div>
 
