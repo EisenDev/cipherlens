@@ -903,10 +903,8 @@ export default function FindingsPage() {
             {/* Table Header Action Bar (Above table) */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white border border-border-warm rounded-2xl p-3 shadow-sm text-xs font-semibold text-text-primary">
               <div className="flex items-center gap-3">
-                <span className="text-text-muted font-bold text-xs">{totalFindings} findings</span>
                 {selectedFindingKeys.length > 0 && (
                   <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-border-warm" />
                     <span className="text-slate-800 font-bold">{selectedFindingKeys.length} selected</span>
                     <button 
                       onClick={() => setSelectedFindingKeys([])}
@@ -930,9 +928,6 @@ export default function FindingsPage() {
                   />
                 </div>
 
-                <button className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer">
-                  Filters <ChevronDown className="w-3.5 h-3.5" />
-                </button>
                 <button className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer">
                   Columns <ChevronDown className="w-3.5 h-3.5" />
                 </button>
