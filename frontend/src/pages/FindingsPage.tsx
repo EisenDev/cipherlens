@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUIStore } from '../store/useUIStore';
@@ -393,12 +393,78 @@ export default function FindingsPage() {
   };
 
   const getStatusBadgeStyle = (status: string) => {
-    if (status === 'Open') return 'bg-red-50 text-red-700 border-red-200';
+    if (status === 'Open') return 'bg-slate-50 text-slate-700 border-slate-200';
     if (status === 'Investigating') return 'bg-blue-50 text-blue-700 border-blue-200';
     if (status === 'In Progress') return 'bg-indigo-50 text-indigo-700 border-indigo-200';
     if (status === 'Resolved' || status === 'Fixed' || status === 'Mitigated') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     if (status === 'Accepted Risk') return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (status === 'False Positive') return 'bg-slate-50 text-slate-500 border-slate-200';
     return 'bg-slate-50 text-slate-700 border-slate-200';
+  };
+
+  /** Maps a raw scanner tool key + category into a clean display name */
+  const getScannerDisplayName = (scanner: string, category: string, module: string): string => {
+    const s = (scanner || '').toLowerCase();
+    const c = (category || '').toLowerCase();
+    const m = (module || '').toLowerCase();
+    if (s === 'headers' || c.includes('header') || m.includes('header')) return 'Security Headers';
+    if (s === 'ssl' || s === 'tls' || c.includes('tls') || c.includes('ssl') || m.includes('ssl')) return 'SSL/TLS Analysis';
+    if (s === 'ports' || c.includes('port') || m.includes('port')) return 'Port Analysis';
+    if (s === 'subdomains' || c.includes('subdomain') || m.includes('subdomain')) return 'Subdomain Enumeration';
+    if (s === 'dns' || c.includes('dns') || c.includes('email') || m.includes('dns')) return 'DNS / Email Security';
+    if (s === 'technology' || c.includes('technology') || m.includes('tech')) return 'Technology Fingerprint';
+    if (s === 'crawler' || c.includes('crawl') || m.includes('crawl')) return 'Crawl Analysis';
+    if (s === 'cookies' || c.includes('cookie') || m.includes('cookie')) return 'Cookie Analysis';
+    if (c.includes('security misconfiguration') || c.includes('misconfiguration')) return 'Security Misconfiguration';
+    if (c.includes('information') || c.includes('disclosure')) return 'Information Disclosure';
+    if (c.includes('network')) return 'Network Exposure';
+    if (category) return category;
+    if (scanner) return scanner.charAt(0).toUpperCase() + scanner.slice(1);
+    return 'Security Analysis';
+  };
+
+  /** Renders markdown-like text with **bold**, *italic*, ### headings, * bullets into JSX */
+  const renderMarkdown = (text: string): React.ReactNode => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return lines.map((line, idx) => {
+      // H3 heading
+      if (line.startsWith('### ')) {
+        return <p key={idx} className="font-extrabold text-slate-900 mt-3 mb-1 text-body-sm">{line.replace(/^### /, '')}</p>;
+      }
+      // H2 heading
+      if (line.startsWith('## ')) {
+        return <p key={idx} className="font-extrabold text-slate-900 mt-3 mb-1">{line.replace(/^## /, '')}</p>;
+      }
+      // Bullet point
+      if (line.startsWith('* ') || line.startsWith('- ')) {
+        const content = line.replace(/^[*-] /, '');
+        return (
+          <div key={idx} className="flex gap-2 ml-2">
+            <span className="text-slate-400 mt-0.5 flex-shrink-0">•</span>
+            <span>{renderInlineMarkdown(content)}</span>
+          </div>
+        );
+      }
+      // Empty line
+      if (line.trim() === '') return <div key={idx} className="h-2" />;
+      // Regular paragraph
+      return <p key={idx} className="leading-relaxed">{renderInlineMarkdown(line)}</p>;
+    });
+  };
+
+  const renderInlineMarkdown = (text: string): React.ReactNode => {
+    // Replace **bold** and *italic* with spans
+    const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-extrabold text-slate-900">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+        return <em key={i} className="italic text-slate-700">{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
   };
 
   // Mock IP mapping for beautiful presentation
@@ -628,10 +694,10 @@ export default function FindingsPage() {
         </div>
 
         {/* Split Layout: Advanced Filters Card Width and Height constrained */}
-        <div className="grid grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-12 gap-5 items-start">
           
-          {/* Left Advanced Filters Panel (col-span-3) -> Narrow, aligned, structured */}
-          <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
+          {/* Left Advanced Filters Panel (col-span-2) -> Narrower panel */}
+          <div className="col-span-12 lg:col-span-2 flex flex-col gap-4">
             <div className="bg-white rounded-2xl border border-border-warm p-4 shadow-sm text-left flex flex-col gap-4 text-xs font-semibold">
               <div className="flex justify-between items-center border-b border-border-warm pb-2">
                 <span className="font-extrabold text-text-primary text-body-sm flex items-center gap-1.5">
@@ -831,8 +897,8 @@ export default function FindingsPage() {
             </div>
           </div>
 
-          {/* Right Main Content Panel (col-span-9) */}
-          <div className="col-span-12 lg:col-span-9 flex flex-col gap-4">
+          {/* Right Main Content Panel (col-span-10) */}
+          <div className="col-span-12 lg:col-span-10 flex flex-col gap-4">
             
             {/* Table Header Action Bar (Above table) */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white border border-border-warm rounded-2xl p-3 shadow-sm text-xs font-semibold text-text-primary">
@@ -975,12 +1041,9 @@ export default function FindingsPage() {
                             </td>
 
                             <td className="px-4 py-3">
-                              <div>
-                                <p className="font-bold text-slate-700 capitalize truncate">{f.scanner === 'headers' ? 'Security Headers' : f.scanner === 'ssl' ? 'SSL/TLS Analysis' : f.scanner}</p>
-                                <p className="text-[10px] text-text-muted font-normal truncate">
-                                  {f.scanner === 'headers' ? 'Nuclei 3.3.2' : f.scanner === 'ssl' ? 'TestSSL 3.2.1' : 'TestSSL 3.2.1'}
-                                </p>
-                              </div>
+                              <p className="font-semibold text-slate-700 truncate text-xs">
+                                {getScannerDisplayName(f.scanner, f.category, f.module)}
+                              </p>
                             </td>
 
                             <td className="px-4 py-3 text-slate-600 font-semibold truncate">
@@ -1084,15 +1147,31 @@ export default function FindingsPage() {
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     
-                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(page => (
-                      <button 
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${currentPage === page ? 'bg-slate-900 text-white font-bold' : 'hover:bg-white border border-transparent hover:border-border-warm'}`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                    {(() => {
+                      // Sliding window of 3 pages around current page
+                      const windowSize = 3;
+                      const half = Math.floor(windowSize / 2);
+                      let startPage = Math.max(1, currentPage - half);
+                      let endPage = Math.min(totalPages, startPage + windowSize - 1);
+                      if (endPage - startPage < windowSize - 1) {
+                        startPage = Math.max(1, endPage - windowSize + 1);
+                      }
+                      const pages = [];
+                      for (let p = startPage; p <= endPage; p++) pages.push(p);
+                      return pages.map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-6 h-6 rounded text-xs flex items-center justify-center transition-colors ${
+                            currentPage === page
+                              ? 'bg-slate-900 text-white font-bold'
+                              : 'text-text-muted hover:bg-white border border-transparent hover:border-border-warm'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
 
                     <button 
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
@@ -1226,9 +1305,9 @@ export default function FindingsPage() {
               <div className="flex flex-col gap-4">
                 <div>
                   <h4 className="text-body-xs font-bold text-text-muted uppercase tracking-wider mb-2">Technical Description</h4>
-                  <p className="text-body-sm text-text-primary leading-relaxed font-semibold">
-                    {drawerFinding.description}
-                  </p>
+                  <div className="text-body-sm text-text-primary leading-relaxed font-normal space-y-0.5">
+                    {renderMarkdown(drawerFinding.description)}
+                  </div>
                 </div>
 
                 {drawerFinding.evidence && (
