@@ -138,6 +138,19 @@ export default function FindingsPage() {
   // Selection state
   const [selectedFindingKeys, setSelectedFindingKeys] = useState<{ findingCode: string; assetId: string }[]>([]);
 
+  // Actions dropdown active menu state
+  const [activeActionMenu, setActiveActionMenu] = useState<{ findingCode: string; assetId: string } | null>(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setActiveActionMenu(null);
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
+
   // Sorting
   const [sortField, setSortField] = useState<'severity' | 'title' | 'cvss' | 'lastSeen' | 'occurrences'>('lastSeen');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -1178,25 +1191,40 @@ export default function FindingsPage() {
                               </td>
 
                               <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                <div className="relative group inline-block">
-                                  <button className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
-                                    <MoreHorizontal className="w-4 h-4" />
-                                  </button>
-                                  <div className="absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
-                                    <button 
-                                      onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
-                                      className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
-                                    >
-                                      Assign to Me
-                                    </button>
-                                    <button 
-                                      onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
-                                      className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
-                                    >
-                                      View Details
-                                    </button>
-                                  </div>
-                                </div>
+                                {(() => {
+                                  const isMenuOpen = activeActionMenu?.findingCode === f.findingCode && activeActionMenu?.assetId === f.asset.id;
+                                  return (
+                                    <div className="relative inline-block">
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (isMenuOpen) {
+                                            setActiveActionMenu(null);
+                                          } else {
+                                            setActiveActionMenu({ findingCode: f.findingCode, assetId: f.asset.id });
+                                          }
+                                        }}
+                                        className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors cursor-pointer"
+                                      >
+                                        <MoreHorizontal className="w-4 h-4" />
+                                      </button>
+                                      <div className={`absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 z-50 text-left ${isMenuOpen ? 'block' : 'hidden'}`}>
+                                        <button 
+                                          onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
+                                          className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans cursor-pointer text-left"
+                                        >
+                                          Assign to Me
+                                        </button>
+                                        <button 
+                                          onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
+                                          className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans cursor-pointer text-left"
+                                        >
+                                          View Details
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                             </tr>
