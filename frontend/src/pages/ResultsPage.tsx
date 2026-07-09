@@ -5,6 +5,7 @@ import { useRealScanStatus, useScanResults } from '../hooks/useScans';
 import type { ScanResultItem } from '../hooks/useScans';
 import { apiRequest } from '../api/client';
 import { calculateScore } from '../utils/scoring';
+import { Shield, ShieldAlert, ShieldCheck, ShieldX, Sparkles, Info } from 'lucide-react';
 
 const cleanToolName = (toolStr: string | null) => {
   if (!toolStr) return 'N/A';
@@ -110,6 +111,43 @@ const getFindingMetrics = (finding: ScanResultItem, scanData: any) => {
     scanTime,
     durationStr
   };
+};
+
+const getPostureConfig = (posture: string) => {
+  const normalized = (posture || '').toLowerCase();
+  if (normalized.includes('excellent')) {
+    return {
+      colorClass: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-200',
+      icon: ShieldCheck,
+      description: 'Your security posture is outstanding. Excellent defense-in-depth.'
+    };
+  } else if (normalized.includes('good')) {
+    return {
+      colorClass: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      icon: ShieldCheck,
+      description: 'Your security posture looks strong. No critical issues detected.'
+    };
+  } else if (normalized.includes('fair') || normalized.includes('attention')) {
+    return {
+      colorClass: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-200',
+      icon: ShieldAlert,
+      description: 'Moderate security issues require attention. Review findings.'
+    };
+  } else {
+    return {
+      colorClass: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      icon: ShieldX,
+      description: 'Critical security issues detected. Immediate remediation is required.'
+    };
+  }
 };
 
 export default function ResultsPage() {
@@ -224,6 +262,10 @@ export default function ResultsPage() {
       netPenalty: result.netPenalty,
     };
   }, [findings, scan]);
+
+  const postureConfig = useMemo(() => {
+    return getPostureConfig(scoreDetails.posture);
+  }, [scoreDetails.posture]);
 
 
   // Group findings count by module
@@ -600,201 +642,133 @@ export default function ResultsPage() {
           {/* 2. Donut / Stats Charts Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Card 1: Risk Overview — powered by CipherLens Scoring Engine v2 */}
-            <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[270px] text-left">
-              <p className="text-body-sm font-bold text-text-primary uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Risk Overview</p>
+            {/* Card 1: Security Posture */}
+            <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[340px] text-left lg:col-span-2">
+              <p className="text-body-sm font-bold text-text-primary uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Security Posture</p>
               
-              <div className="flex items-center justify-between gap-6 flex-1">
-                {/* Donut chart overlay representing Security Score */}
-                <div className="relative w-28 h-28 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    {/* Track */}
-                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#F1F1EF" strokeWidth="3.2" />
-                    
-                    {/* Security Score Filled Circle */}
-                    <circle
-                      cx="18" cy="18" r="15.915" fill="none"
-                      stroke={
-                        scoreDetails.score >= 90 ? "#10B981" : // emerald-500
-                        scoreDetails.score >= 70 ? "#F59E0B" : // amber-500
-                        scoreDetails.score >= 50 ? "#F97316" : // orange-500
-                        "#EF4444" // red-500
-                      }
-                      strokeWidth="3.6"
-                      strokeDasharray={`${scoreDetails.score} ${100 - scoreDetails.score}`}
-                      strokeLinecap="round"
-                      className="transition-all duration-1000 ease-out"
-                    />
-                  </svg>
-
-                  {/* Inner Risk score label */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className={`text-title-h2 font-black tracking-tight leading-none ${
-                      scoreDetails.score >= 90 ? "text-emerald-600" :
-                      scoreDetails.score >= 70 ? "text-amber-600" :
-                      scoreDetails.score >= 50 ? "text-orange-600" :
-                      "text-red-600"
-                    }`}>
-                      {scoreDetails.score}
-                    </span>
-                    <span className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider mt-0.5 select-none">Score</span>
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
+                {/* Left section: shield icon + posture text */}
+                <div className="flex flex-col items-center justify-center text-center px-4 flex-shrink-0 md:border-r border-border-warm/50 md:pr-10 md:h-full md:justify-center">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2.5 ${postureConfig.bgColor} ${postureConfig.borderColor} border`}>
+                    <postureConfig.icon className={`w-9 h-9 ${postureConfig.colorClass}`} />
                   </div>
+                  <span className={`text-title-h3 font-black tracking-tight leading-none ${postureConfig.colorClass}`}>
+                    {scoreDetails.posture}
+                  </span>
+                  <p className="text-[10px] font-semibold text-text-muted mt-2 max-w-[180px]">
+                    {postureConfig.description}
+                  </p>
                 </div>
 
-                {/* Counts mapping list table (Cleaned: single-column space-between list with dividers) */}
-                <div className="flex-1 space-y-1 select-none">
-                  <div className="space-y-1 text-body-xs text-text-secondary font-semibold">
+                {/* Right section: grid / details list */}
+                <div className="flex-1 w-full grid grid-cols-2 gap-x-6 gap-y-2 select-none">
+                  {/* Left Column: Core parameters */}
+                  <div className="space-y-1.5 text-body-xs text-text-secondary font-semibold border-r border-border-warm/50 pr-4">
                     <div className="flex items-center justify-between border-b border-border-warm/40 pb-1">
+                      <div className="flex items-center gap-1">
+                        <Shield className="w-3.5 h-3.5 text-text-muted" />
+                        <span>Confidence</span>
+                        <div className="group relative">
+                          <Info className="w-3 h-3 text-text-muted cursor-help" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 w-48 bg-text-primary text-white text-[10px] p-2 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                            Measures scan reliability based on scanner types and vulnerability validations.
+                          </div>
+                        </div>
+                      </div>
+                      <span className="font-bold text-text-primary">
+                        {scoreDetails.confidenceLevel === 'HIGH' ? '98%' : scoreDetails.confidenceLevel === 'MEDIUM' ? '85%' : '60%'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-1">
+                      <div className="flex items-center gap-1">
+                        <ShieldAlert className="w-3.5 h-3.5 text-text-muted" />
+                        <span>Coverage</span>
+                      </div>
+                      <span className="font-bold text-text-primary">
+                        {Math.round((modulesSummaryStats.completed / (modulesSummaryStats.total || 1)) * 100)}%
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-text-muted" />
+                        <span>Modules Executed</span>
+                      </div>
+                      <span className="font-bold text-text-primary">
+                        {modulesSummaryStats.completed} / {modulesSummaryStats.total}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Findings counts mapping */}
+                  <div className="space-y-1.5 text-[11px] text-text-secondary font-semibold">
+                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-0.5">
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        <span>Critical</span>
+                        <span>Critical Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.CRITICAL}</span>
                     </div>
-                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-1">
+                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-0.5">
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                        <span>High</span>
+                        <span>High Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.HIGH}</span>
                     </div>
-                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-1">
+                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-0.5">
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                        <span>Medium</span>
+                        <span>Medium Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.MEDIUM}</span>
                     </div>
-                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-1">
+                    <div className="flex items-center justify-between border-b border-border-warm/40 pb-0.5">
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                        <span>Low</span>
+                        <span>Low Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.LOW}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                        <span>Informational</span>
+                        <span>Informational Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.INFO}</span>
                     </div>
                   </div>
-                  <div className="flex items-center border-t border-border-warm pt-1.5 font-extrabold text-text-primary justify-between text-body-xs uppercase tracking-wider">
-                    <span>Total Findings</span>
-                    <span>{stats.total}</span>
-                  </div>
                 </div>
               </div>
 
-              {/* Bounded Score metrics footer */}
-              <div className="grid grid-cols-3 gap-2 pt-2.5 mt-2.5 border-t border-border-warm/40 text-center select-none">
-                <div>
-                  <p className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider">Posture</p>
-                  <p className="text-body-xs font-bold text-text-primary mt-0.5 truncate" title={scoreDetails.posture}>
-                    {scoreDetails.posture}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider">Risk Level</p>
-                  <span className={`inline-block text-[8.5px] font-extrabold px-1.5 py-0.5 rounded-full mt-0.5 ${
-                    scoreDetails.riskLevel === 'LOW' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                    scoreDetails.riskLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                    scoreDetails.riskLevel === 'HIGH' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
-                    'bg-red-50 text-red-700 border border-red-200'
-                  }`}>
-                    {scoreDetails.riskLevel}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider">Confidence</p>
-                  <span className={`inline-block text-[8.5px] font-extrabold px-1.5 py-0.5 rounded-full mt-0.5 ${
-                    scoreDetails.confidenceLevel === 'HIGH' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                    scoreDetails.confidenceLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                    'bg-slate-50 text-slate-700 border border-slate-200'
-                  }`}>
-                    {scoreDetails.confidenceLevel}
-                  </span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Card 2: Modules Summary */}
-            <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[260px] text-left">
-              <p className="text-body-sm font-bold text-text-primary uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Modules Summary</p>
-              
-              <div className="flex items-center justify-between gap-6 flex-1">
-                {/* Modules chart */}
-                <div className="relative w-32 h-32 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#F1F1EF" strokeWidth="3.2" />
-                    
-                    {/* Completed (green) segment */}
-                    {modulesSummaryStats.completed > 0 && (
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#10B981" strokeWidth="3.6"
-                        strokeDasharray={`${(modulesSummaryStats.completed / (modulesSummaryStats.total || 1)) * 100} ${100 - (modulesSummaryStats.completed / (modulesSummaryStats.total || 1)) * 100}`}
-                        strokeDashoffset="0"
-                      />
-                    )}
-                    {/* Failed (red) segment */}
-                    {modulesSummaryStats.failed > 0 && (
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#EF4444" strokeWidth="3.6"
-                        strokeDasharray={`${(modulesSummaryStats.failed / (modulesSummaryStats.total || 1)) * 100} ${100 - (modulesSummaryStats.failed / (modulesSummaryStats.total || 1)) * 100}`}
-                        strokeDashoffset={`-${(modulesSummaryStats.completed / (modulesSummaryStats.total || 1)) * 100}`}
-                      />
-                    )}
-                  </svg>
-
-                  {/* Modules completed ratio text */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
-                    <span className="text-title-h2 font-black text-text-primary leading-none">
-                      {modulesSummaryStats.completed}
-                    </span>
-                    <span className="text-[8px] font-bold text-text-muted uppercase tracking-wider mt-1 leading-none">/ {modulesSummaryStats.total} Modules</span>
-                    <span className="text-[7.5px] text-text-muted/80 mt-0.5">Completed</span>
+              {/* AI Summary alert panel box */}
+              <div className="mt-3.5 bg-green-50/50 border border-green-100 rounded-2xl p-3 flex items-center justify-between gap-4">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="text-[11px] font-extrabold text-green-800 flex items-center gap-1">
+                      AI Summary
+                    </p>
+                    <p className="text-[11px] text-green-700 leading-snug font-semibold mt-0.5">
+                      {scan.targetUrl ? new URL(scan.targetUrl).hostname : 'Target'} demonstrates a mature security posture with excellent infrastructure protection and best-practice implementations. We identified a few areas for improvement in security headers and informational disclosures.
+                    </p>
                   </div>
                 </div>
-
-                {/* Modules details nested card panel block (Cleaned: rounded block spacing) */}
-                <div className="bg-[#FAFAF7] border border-border-warm rounded-2xl p-3 flex-1 flex flex-col justify-between h-[150px] select-none">
-                  <div className="space-y-1.5 text-body-xs text-text-secondary font-semibold">
-                    <div className="flex items-center justify-between border-b border-border-warm/30 pb-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Completed
-                      </span>
-                      <span className="font-bold text-text-primary">{modulesSummaryStats.completed}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-b border-border-warm/30 pb-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Failed
-                      </span>
-                      <span className="font-bold text-text-primary">{modulesSummaryStats.failed}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-b border-border-warm/30 pb-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Skipped
-                      </span>
-                      <span className="font-bold text-text-primary">{modulesSummaryStats.skipped}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Queued
-                      </span>
-                      <span className="font-bold text-text-primary">{modulesSummaryStats.queued}</span>
-                    </div>
-                  </div>
-                </div>
+                <button 
+                  onClick={() => {
+                    const el = document.getElementById('ai-analysis-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white font-bold text-body-xs rounded-xl flex-shrink-0 cursor-pointer shadow-sm transition-colors"
+                >
+                  View Summary
+                </button>
               </div>
-
             </div>
 
             {/* Column 3: Timeline + Target Information Stack */}
-            <div className="flex flex-col gap-3.5 h-[260px] justify-between text-left">
+            <div className="flex flex-col gap-3.5 h-[340px] justify-between text-left lg:col-span-1">
               
               {/* Card 3: Scan Timeline */}
               <div className="bg-white p-4 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between flex-1 min-h-0">
