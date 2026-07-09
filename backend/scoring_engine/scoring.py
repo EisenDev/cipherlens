@@ -704,6 +704,14 @@ class ScoringResult:
     net_penalty: float
     completed_modules: int
 
+    # New qualitative metrics
+    posture_color: str
+    posture_icon: str
+    ai_summary: str
+    confidence_score: int
+    coverage_score: int
+    recommendation: str
+
 
 # ===========================================================================
 # SECTION 8 — CLASSIFICATION ENGINE
@@ -942,6 +950,9 @@ def _detect_positive_signals(
 def calculate_score(
     findings_raw: List[Dict[str, Any]],
     completed_module_names: List[str],
+    enabled_modules_count: Optional[int] = None,
+    failed_modules_count: Optional[int] = None,
+    target_url: Optional[str] = None,
 ) -> ScoringResult:
     """
     Main entry point for the CipherLens Security Scoring Engine v3.
@@ -1249,6 +1260,85 @@ def calculate_score(
         and EXPL_ORDER.get(cf.exploitability, 0) >= EXPL_ORDER.get("low", 0)
     )
 
+    # ── Dynamic metrics calculations ───────────────────────────────────────
+    enabled_mods = enabled_modules_count if enabled_modules_count is not None else max(n_completed, 1)
+    coverage_score = int(round((n_completed / enabled_mods) * 100)) if enabled_mods > 0 else 100
+    coverage_score = max(0, min(100, coverage_score))
+
+    # Confidence calculation (0-100)
+    confidence_score = 80
+    if enabled_mods > 0:
+        completed_ratio = n_completed / enabled_mods
+        if completed_ratio < 1.0:
+            confidence_score -= int(20 * (1.0 - completed_ratio))
+    if failed_modules_count is not None and failed_modules_count > 0:
+        confidence_score -= min(20, failed_modules_count * 5)
+
+    agreement_bonus = 0
+    weak_scanner_deduction = 0
+    for cf in unique_findings:
+        if len(cf.detectors) >= 2:
+            agreement_bonus += 5
+        elif len(cf.detectors) == 1:
+            det = cf.detectors[0].lower()
+            if any(k in det for k in ["crawler", "katana", "technology", "wappalyzer"]):
+                weak_scanner_deduction += 2
+    confidence_score += min(15, agreement_bonus)
+    confidence_score -= min(10, weak_scanner_deduction)
+    confidence_score = max(0, min(100, confidence_score))
+
+    # Posture config map
+    posture_map = {
+        "Excellent": {"color": "green", "icon": "shield-check", "rec": "Continue monitoring and maintain current security controls."},
+        "Good": {"color": "blue", "icon": "shield-check", "rec": "Review minor security header improvements and patch low-risk items."},
+        "Fair": {"color": "yellow", "icon": "shield-alert", "rec": "Prioritize patching High and Medium risk vulnerabilities."},
+        "Needs Attention": {"color": "orange", "icon": "shield-alert", "rec": "Prioritize patching High and Medium risk vulnerabilities."},
+        "Critical": {"color": "red", "icon": "shield-x", "rec": "Immediate remediation is recommended for critical exploitable vulnerabilities."}
+    }
+    cfg = posture_map.get(posture, {"color": "red", "icon": "shield-x", "rec": "Immediate remediation is recommended."})
+    posture_color = cfg["color"]
+    posture_icon = cfg["icon"]
+    recommendation = cfg["rec"]
+
+    # Dynamic AI summary generation
+    from urllib.parse import urlparse
+    url_str = target_url or "Target"
+    try:
+        hostname = urlparse(url_str).netloc or url_str
+        if not hostname:
+            hostname = url_str
+    except Exception:
+        hostname = url_str
+
+    posture_desc = {
+        "Excellent": "demonstrates an outstanding security posture with excellent defense-in-depth.",
+        "Good": "demonstrates a strong and mature security posture with robust controls.",
+        "Fair": "has a fair security posture but displays several configuration issues that require attention.",
+        "Needs Attention": "requires active attention to address key security vulnerabilities and improve resilience.",
+        "Critical": "presents a highly critical security posture with multiple active exposures."
+    }.get(posture, "demonstrates a variable security posture.")
+
+    ai_summary = f"{hostname} {posture_desc} "
+    ai_summary += f"We successfully executed {n_completed} out of {enabled_mods} security assessment modules. "
+
+    crit_cnt = sev_counts["CRITICAL"]
+    high_cnt = sev_counts["HIGH"]
+    if crit_cnt > 0 or high_cnt > 0:
+        ai_summary += f"During the scan, we identified {crit_cnt} critical-severity and {high_cnt} high-severity findings. "
+    else:
+        ai_summary += "During the scan, no critical or high-severity vulnerabilities were identified. "
+
+    if top_contributors:
+        top_title = top_contributors[0].get("title", "")
+        ai_summary += f"The most significant finding detected was '{top_title}'. "
+    
+    if posture in ["Excellent", "Good"]:
+        ai_summary += "We observed strong protocol implementation, modern TLS controls, and defensive configurations. Minor recommendations focus on standard security header alignment."
+    elif posture in ["Fair", "Needs Attention"]:
+        ai_summary += "We recommend prioritizing the high-severity items, hardening HTTP headers, and reviewing access controls to prevent potential exploit paths."
+    else:
+        ai_summary += "Immediate remediation of the critical findings, default credential rotation, and port hardening is highly recommended to secure the target environment."
+
     return ScoringResult(
         overall_score=score,
         posture=posture,
@@ -1271,6 +1361,12 @@ def calculate_score(
         positive_bonus=round(positive_bonus, 3),
         net_penalty=round(net_penalty, 3),
         completed_modules=n_completed,
+        posture_color=posture_color,
+        posture_icon=posture_icon,
+        ai_summary=ai_summary,
+        confidence_score=confidence_score,
+        coverage_score=coverage_score,
+        recommendation=recommendation,
     )
 
 
@@ -1287,13 +1383,20 @@ def score_from_db(db_session: Any, scan_id: str) -> ScoringResult:
     db_session : SQLAlchemy Session
     scan_id    : UUID of the scan to score
     """
-    from database.models import ScanResult, ScanModule  # local import
+    from database.models import Scan, ScanResult, ScanModule  # local import
 
-    modules = db_session.query(ScanModule).filter(
-        ScanModule.scanId == scan_id,
-        ScanModule.status == "COMPLETED"
+    scan = db_session.query(Scan).filter(Scan.id == scan_id).first()
+    target_url = scan.asset.url if (scan and scan.targetId) else None
+
+    all_modules = db_session.query(ScanModule).filter(
+        ScanModule.scanId == scan_id
     ).all()
-    completed_module_names = [m.name for m in modules]
+    
+    # Filter out selected_modules meta-record
+    enabled_mods = [m for m in all_modules if m.name != "selected_modules"]
+    completed_module_names = [m.name for m in enabled_mods if m.status == "COMPLETED"]
+    failed_mods_count = sum(1 for m in enabled_mods if m.status == "FAILED")
+    enabled_mods_count = len(enabled_mods)
 
     results = db_session.query(ScanResult).filter(ScanResult.scanId == scan_id).all()
     findings_raw = [
@@ -1310,4 +1413,10 @@ def score_from_db(db_session: Any, scan_id: str) -> ScoringResult:
         for r in results
     ]
 
-    return calculate_score(findings_raw, completed_module_names)
+    return calculate_score(
+        findings_raw,
+        completed_module_names,
+        enabled_modules_count=enabled_mods_count,
+        failed_modules_count=failed_mods_count,
+        target_url=target_url
+    )

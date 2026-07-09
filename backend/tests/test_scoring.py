@@ -119,3 +119,49 @@ def test_positive_security_signals():
     res = calculate_score(findings, ["headers", "waf"])
     assert res.positive_signals == 2
     assert res.net_penalty == pytest.approx(res.total_raw_penalty * 0.75, rel=1e-3)
+
+
+def test_dynamic_posture_and_confidence_calculations():
+    """Verify that backend scoring returns dynamic confidence, coverage, recommendation, color, icon, and AI summary."""
+    findings = [
+        {
+            "title": "Deprecated Protocol Enabled: TLS1",
+            "severity": "MEDIUM",
+            "module": "tls",
+            "description": "The server still accepts TLS1 connections."
+        },
+        {
+            "title": "Deprecated Protocol Enabled: TLS1",
+            "severity": "MEDIUM",
+            "module": "ssl",
+            "description": "Double check: TLS1 supported."
+        }
+    ]
+
+    res = calculate_score(
+        findings,
+        completed_module_names=["tls", "ssl", "headers"],
+        enabled_modules_count=5,
+        failed_modules_count=1,
+        target_url="https://youtube.com/"
+    )
+
+    # 1. Coverage
+    # 3 completed out of 5 enabled = 60%
+    assert res.coverage_score == 60
+
+    # 2. Confidence
+    # base 80 - 8 (coverage gap: 20 * (1 - 3/5)) - 5 (1 failed) + 5 (agreement bonus for duplicate TLS1) = 72
+    assert res.confidence_score == 72
+
+    # 3. Posture decision configurations
+    assert res.posture in ("Excellent", "Good", "Fair", "Needs Attention", "Critical")
+    assert res.posture_color in ("green", "blue", "yellow", "orange", "red")
+    assert res.posture_icon in ("shield-check", "shield-alert", "shield-x")
+    assert len(res.recommendation) > 5
+
+    # 4. AI summary content checks
+    assert "youtube.com" in res.ai_summary
+    assert "3 out of 5" in res.ai_summary
+    assert "Deprecated Protocol Enabled" in res.ai_summary
+

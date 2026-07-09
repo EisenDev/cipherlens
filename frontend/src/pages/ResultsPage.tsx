@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar';
 import { useRealScanStatus, useScanResults } from '../hooks/useScans';
 import type { ScanResultItem } from '../hooks/useScans';
 import { apiRequest } from '../api/client';
-import { calculateScore } from '../utils/scoring';
 import { Shield, ShieldAlert, ShieldCheck, ShieldX, Sparkles, Info } from 'lucide-react';
 
 const cleanToolName = (toolStr: string | null) => {
@@ -113,43 +112,6 @@ const getFindingMetrics = (finding: ScanResultItem, scanData: any) => {
   };
 };
 
-const getPostureConfig = (posture: string) => {
-  const normalized = (posture || '').toLowerCase();
-  if (normalized.includes('excellent')) {
-    return {
-      colorClass: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      borderColor: 'border-emerald-200',
-      icon: ShieldCheck,
-      description: 'Your security posture is outstanding. Excellent defense-in-depth.'
-    };
-  } else if (normalized.includes('good')) {
-    return {
-      colorClass: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      icon: ShieldCheck,
-      description: 'Your security posture looks strong. No critical issues detected.'
-    };
-  } else if (normalized.includes('fair') || normalized.includes('attention')) {
-    return {
-      colorClass: 'text-amber-600',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200',
-      icon: ShieldAlert,
-      description: 'Moderate security issues require attention. Review findings.'
-    };
-  } else {
-    return {
-      colorClass: 'text-red-600',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      icon: ShieldX,
-      description: 'Critical security issues detected. Immediate remediation is required.'
-    };
-  }
-};
-
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -216,56 +178,6 @@ export default function ResultsPage() {
 
     return counts;
   }, [findings]);
-
-  // ── Security Scoring Engine v2 ───────────────────────────────────────
-  const scoreDetails = useMemo(() => {
-    // Build completed module list from scan.modules
-    const completedModuleNames: string[] = scan?.modules
-      ? Object.entries(scan.modules)
-          .filter(([, m]) => (m as { status: string }).status === 'COMPLETED')
-          .map(([name]) => name)
-      : [];
-
-    // Run the canonical v3 scoring engine
-    const result = calculateScore(
-      findings.map(f => ({
-        title: f.title,
-        severity: f.severity,
-        module: f.module ?? undefined,
-        tool: f.tool ?? undefined,
-        description: f.description,
-        evidence: f.evidence ?? undefined,
-        rawData: f.rawData ?? undefined,
-        findingCode: f.findingCode,
-      })),
-      completedModuleNames,
-    );
-
-    // Prefer the backend-persisted score for historical scans (already validated).
-    // For live/fresh scans the frontend v3 engine computes the canonical score.
-    const finalScore = (scan?.score !== null && scan?.score !== undefined)
-      ? scan.score
-      : result.overallScore;
-
-    return {
-      score: finalScore,
-      posture: result.posture,
-      riskLevel: result.riskLevel,
-      confidenceLevel: result.scanConfidence,
-      attackSurface: result.attackSurface,
-      positiveSignalsCount: result.positiveSignals,
-      negativeSignalsCount: result.negativeSignals,
-      topContributors: result.topContributors,
-      moduleScores: result.moduleScores,
-      scoreBreakdown: result.scoreBreakdown,
-      uniqueFindingCount: result.uniqueFindingCount,
-      netPenalty: result.netPenalty,
-    };
-  }, [findings, scan]);
-
-  const postureConfig = useMemo(() => {
-    return getPostureConfig(scoreDetails.posture);
-  }, [scoreDetails.posture]);
 
 
   // Group findings count by module
@@ -495,6 +407,40 @@ export default function ResultsPage() {
     }
   };
 
+  const posture = scan?.posture || 'Not Yet Calculated';
+  const postureColorStr = scan?.postureColor || 'gray';
+  const postureIconStr = scan?.postureIcon || 'shield';
+  const recommendation = scan?.recommendation || 'Not Yet Calculated';
+  const aiSummaryText = scan?.summary || 'Not Yet Calculated';
+
+  const confidenceValue = scan?.confidenceScore !== undefined && scan?.confidenceScore !== null
+    ? `${scan.confidenceScore}%`
+    : 'Not Yet Calculated';
+
+  const coverageValue = scan?.coverageScore !== undefined && scan?.coverageScore !== null
+    ? `${scan.coverageScore}%`
+    : 'Not Yet Calculated';
+
+  // Map backend color names to CSS classes
+  const colorMap: Record<string, { colorClass: string; bgColor: string; borderColor: string }> = {
+    green: { colorClass: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
+    blue: { colorClass: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+    yellow: { colorClass: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
+    orange: { colorClass: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+    red: { colorClass: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+    gray: { colorClass: 'text-slate-600', bgColor: 'bg-slate-50', borderColor: 'border-slate-200' },
+  };
+  const design = colorMap[postureColorStr] || colorMap.gray;
+
+  // Map backend icon names to Lucide components
+  const iconMap: Record<string, React.ComponentType<any>> = {
+    'shield-check': ShieldCheck,
+    'shield-alert': ShieldAlert,
+    'shield-x': ShieldX,
+    'shield': Shield,
+  };
+  const PostureIconComponent = iconMap[postureIconStr] || Shield;
+
   return (
     <div className="min-h-screen bg-[#FAFAF7] flex overflow-hidden">
       
@@ -649,14 +595,14 @@ export default function ResultsPage() {
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
                 {/* Left section: shield icon + posture text */}
                 <div className="flex flex-col items-center justify-center text-center px-4 flex-shrink-0 md:border-r border-border-warm/50 md:pr-10 md:h-full md:justify-center">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2.5 ${postureConfig.bgColor} ${postureConfig.borderColor} border`}>
-                    <postureConfig.icon className={`w-9 h-9 ${postureConfig.colorClass}`} />
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2.5 ${design.bgColor} ${design.borderColor} border`}>
+                    <PostureIconComponent className={`w-9 h-9 ${design.colorClass}`} />
                   </div>
-                  <span className={`text-title-h3 font-black tracking-tight leading-none ${postureConfig.colorClass}`}>
-                    {scoreDetails.posture}
+                  <span className={`text-title-h3 font-black tracking-tight leading-none ${design.colorClass}`}>
+                    {posture}
                   </span>
                   <p className="text-[10px] font-semibold text-text-muted mt-2 max-w-[180px]">
-                    {postureConfig.description}
+                    {recommendation}
                   </p>
                 </div>
 
@@ -676,7 +622,7 @@ export default function ResultsPage() {
                         </div>
                       </div>
                       <span className="font-bold text-text-primary">
-                        {scoreDetails.confidenceLevel === 'HIGH' ? '98%' : scoreDetails.confidenceLevel === 'MEDIUM' ? '85%' : '60%'}
+                        {confidenceValue}
                       </span>
                     </div>
 
@@ -686,7 +632,7 @@ export default function ResultsPage() {
                         <span>Coverage</span>
                       </div>
                       <span className="font-bold text-text-primary">
-                        {Math.round((modulesSummaryStats.completed / (modulesSummaryStats.total || 1)) * 100)}%
+                        {coverageValue}
                       </span>
                     </div>
 
@@ -751,7 +697,7 @@ export default function ResultsPage() {
                       AI Summary
                     </p>
                     <p className="text-[11px] text-green-700 leading-snug font-semibold mt-0.5">
-                      {scan.targetUrl ? new URL(scan.targetUrl).hostname : 'Target'} demonstrates a mature security posture with excellent infrastructure protection and best-practice implementations. We identified a few areas for improvement in security headers and informational disclosures.
+                      {aiSummaryText}
                     </p>
                   </div>
                 </div>

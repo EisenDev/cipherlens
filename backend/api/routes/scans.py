@@ -763,6 +763,12 @@ def get_scan_status(
         top_contributors = scoring_res.top_contributors
         module_scores_data = scoring_res.module_scores
         score_breakdown = scoring_res.score_breakdown
+        posture_color = scoring_res.posture_color
+        posture_icon = scoring_res.posture_icon
+        ai_summary = scoring_res.ai_summary
+        confidence_score = scoring_res.confidence_score
+        coverage_score = scoring_res.coverage_score
+        recommendation = scoring_res.recommendation
     except Exception as e:
         overall_score = scan.score or 100
         posture = "Excellent" if overall_score >= 95 else "Good" if overall_score >= 88 else "Fair"
@@ -774,6 +780,12 @@ def get_scan_status(
         top_contributors = []
         module_scores_data = {}
         score_breakdown = {}
+        posture_color = "green" if overall_score >= 95 else "blue" if overall_score >= 88 else "yellow"
+        posture_icon = "shield-check"
+        ai_summary = "Not Yet Calculated"
+        confidence_score = 0
+        coverage_score = 0
+        recommendation = "Not Yet Calculated"
 
     return {
         "status": scan.status,
@@ -789,6 +801,12 @@ def get_scan_status(
         "topContributors": top_contributors,
         "moduleScores": module_scores_data,
         "scoreBreakdown": score_breakdown,
+        "postureColor": posture_color,
+        "postureIcon": posture_icon,
+        "summary": ai_summary,
+        "confidenceScore": confidence_score,
+        "coverageScore": coverage_score,
+        "recommendation": recommendation,
         "targetUrl": scan.asset.url,
         "scanType": scan.scanType,
         "targetType": scan.asset.type,
