@@ -125,7 +125,7 @@ export default function FindingsPage() {
   // Fetch lists for filter options
   useEffect(() => {
     if (authAccessToken) {
-      apiRequest('/assets')
+      apiRequest('/api/assets')
         .then((res) => setAssets(res))
         .catch(() => {});
     }
@@ -149,7 +149,7 @@ export default function FindingsPage() {
     if (dateFrom) params.append('date_from', dateFrom);
     if (dateTo) params.append('date_to', dateTo);
 
-    apiRequest(`/findings?${params.toString()}`)
+    apiRequest(`/api/findings?${params.toString()}`)
       .then((res) => {
         setFindings(res.findings);
         setStats(res.stats);
@@ -232,7 +232,7 @@ export default function FindingsPage() {
   // Status Change handler
   const handleStatusChange = async (findingCode: string, assetId: string, newStatus: string) => {
     try {
-      await apiRequest('/findings/status', {
+      await apiRequest('/api/findings/status', {
         method: 'PATCH',
         body: JSON.stringify({ findingCode, assetId, status: newStatus })
       });
@@ -248,7 +248,7 @@ export default function FindingsPage() {
   // Assignee Change handler
   const handleAssigneeChange = async (findingCode: string, assetId: string, assignee: string) => {
     try {
-      await apiRequest('/findings/status', {
+      await apiRequest('/api/findings/status', {
         method: 'PATCH',
         body: JSON.stringify({ findingCode, assetId, assignedTo: assignee })
       });
@@ -274,7 +274,7 @@ export default function FindingsPage() {
         body.reRunValidation = true;
       }
 
-      const res = await apiRequest('/findings/bulk', {
+      const res = await apiRequest('/api/findings/bulk', {
         method: 'POST',
         body: JSON.stringify(body)
       });
@@ -291,7 +291,7 @@ export default function FindingsPage() {
     if (!drawerFinding) return;
     setNotesSaving(true);
     try {
-      await apiRequest('/findings/status', {
+      await apiRequest('/api/findings/status', {
         method: 'PATCH',
         body: JSON.stringify({ 
           findingCode: drawerFinding.findingCode, 
@@ -315,7 +315,7 @@ export default function FindingsPage() {
     setAiLoading(true);
     setAiResponse(null);
     try {
-      const res = await apiRequest('/findings/ai-assistance', {
+      const res = await apiRequest('/api/findings/ai-assistance', {
         method: 'POST',
         body: JSON.stringify({ 
           findingCode: drawerFinding.findingCode, 
@@ -401,59 +401,63 @@ export default function FindingsPage() {
 
   return (
     <DashboardLayout activePage="findings">
-      <div className="flex flex-col gap-6 w-full max-w-[1400px] mx-auto pb-10">
+      <div className="py-8 px-10 space-y-7 w-full">
         
-        {/* Top Header */}
-        <div className="flex justify-between items-center px-4">
+        {/* Main Title Row */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="text-left">
-            <h1 className="text-2xl font-bold text-text-primary" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h1 className="text-3xl font-light text-text-primary tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
               Findings
             </h1>
-            <p className="text-text-muted text-body-sm mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+            <p className="text-xs text-text-muted mt-1.5" style={{ fontFamily: 'var(--font-body)' }}>
               Centralized vulnerability management across all scanned assets.
             </p>
           </div>
           <div className="flex gap-3">
             <button 
               onClick={() => alert('Feature scheduled for Phase 3.2 release')}
-              className="px-4 py-2 bg-white border border-border-warm text-text-primary font-bold text-body-sm rounded-xl cursor-pointer hover:bg-bg-secondary transition-all shadow-sm flex items-center gap-1.5"
+              className="px-4 py-2 border border-border-warm bg-white hover:bg-bg-primary text-xs font-semibold text-text-primary rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+              style={{ fontFamily: 'var(--font-body)' }}
             >
+              <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
               Export Report
             </button>
             {selectedFindingKeys.length > 0 && (
               <div className="relative group">
-                <button className="px-4 py-2 bg-slate-900 text-white font-bold text-body-sm rounded-xl cursor-pointer hover:bg-slate-800 transition-all shadow-sm flex items-center gap-1.5">
+                <button className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer hover:bg-slate-800 transition-all shadow-sm flex items-center gap-1.5" style={{ fontFamily: 'var(--font-body)' }}>
                   Bulk Actions ({selectedFindingKeys.length}) <ChevronDown className="w-4 h-4" />
                 </button>
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
                   <button 
                     onClick={() => handleBulkAction('status', 'Investigating')}
-                    className="w-full px-4 py-2 text-body-sm text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
                   >
                     Set: Investigating
                   </button>
                   <button 
                     onClick={() => handleBulkAction('status', 'Accepted Risk')}
-                    className="w-full px-4 py-2 text-body-sm text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
                   >
                     Set: Accepted Risk
                   </button>
                   <button 
                     onClick={() => handleBulkAction('status', 'Resolved')}
-                    className="w-full px-4 py-2 text-body-sm text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
                   >
                     Set: Fixed/Resolved
                   </button>
                   <hr className="my-1 border-border-warm" />
                   <button 
                     onClick={() => handleBulkAction('assign', 'Arjay Escabas')}
-                    className="w-full px-4 py-2 text-body-sm text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-semibold transition-colors flex items-center gap-2"
                   >
                     Assign to Me
                   </button>
                   <button 
                     onClick={() => handleBulkAction('validate')}
-                    className="w-full px-4 py-2 text-body-sm text-emerald-700 hover:bg-bg-secondary font-bold transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2 text-xs text-emerald-700 hover:bg-bg-secondary font-bold transition-colors flex items-center gap-2"
                   >
                     Re-run Validation
                   </button>
@@ -463,50 +467,111 @@ export default function FindingsPage() {
           </div>
         </div>
 
-        {/* KPI Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 px-4">
-          <div className="bg-white p-4 rounded-2xl border border-border-warm shadow-sm text-left">
-            <p className="text-text-muted text-body-xs font-bold uppercase tracking-wider">Total Active Findings</p>
-            <h3 className="text-3xl font-extrabold text-text-primary mt-2">{stats.totalActive}</h3>
-            <p className="text-body-xs font-semibold text-text-muted mt-1">across all projects</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-border-warm shadow-sm text-left flex flex-col justify-between">
-            <div>
-              <p className="text-text-muted text-body-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" /> Critical Findings
-              </p>
-              <h3 className="text-3xl font-extrabold text-red-600 mt-2">{stats.criticalActive}</h3>
+        {/* Statistics summary row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          
+          {/* Total Active Findings */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Total Active</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-text-primary font-mono">{loading ? '--' : stats.totalActive}</p>
+              </div>
+              <p className="text-body-sm text-text-muted font-semibold">across all projects</p>
             </div>
-            <p className="text-body-xs font-semibold text-red-700/80 mt-1">▲ 1 from last scan</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-border-warm shadow-sm text-left flex flex-col justify-between">
-            <div>
-              <p className="text-text-muted text-body-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-orange-500" /> High Findings
-              </p>
-              <h3 className="text-3xl font-extrabold text-orange-600 mt-2">{stats.highActive}</h3>
+            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
             </div>
-            <p className="text-body-xs font-semibold text-orange-600/80 mt-1">▲ 2 from last scan</p>
           </div>
-          <div className="bg-white p-4 rounded-2xl border border-border-warm shadow-sm text-left">
-            <p className="text-text-muted text-body-xs font-bold uppercase tracking-wider">Resolved This Week</p>
-            <h3 className="text-3xl font-extrabold text-emerald-600 mt-2">{stats.resolvedThisWeek}</h3>
-            <p className="text-body-xs font-semibold text-emerald-700/80 mt-1">▼ 1 from last scan</p>
+
+          {/* Critical Findings */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-650 animate-pulse" /> Critical
+              </p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-red-600 font-mono">{loading ? '--' : stats.criticalActive}</p>
+              </div>
+              <p className="text-body-sm text-red-500 font-semibold">remediation priority</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center border border-red-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-2xl border border-border-warm shadow-sm text-left">
-            <p className="text-text-muted text-body-xs font-bold uppercase tracking-wider">Avg Time To Resolution</p>
-            <h3 className="text-3xl font-extrabold text-text-primary mt-2">{stats.avgHoursToResolution}h</h3>
-            <p className="text-body-xs font-semibold text-text-muted mt-1">remediation velocity</p>
+
+          {/* High Findings */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">High Severity</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-orange-600 font-mono">{loading ? '--' : stats.highActive}</p>
+              </div>
+              <p className="text-body-sm text-orange-500 font-semibold">requires attention</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-2xl border border-border-warm shadow-sm text-left">
-            <p className="text-text-muted text-body-xs font-bold uppercase tracking-wider">Assets With Findings</p>
-            <h3 className="text-3xl font-extrabold text-text-primary mt-2">{stats.assetsWithActive}</h3>
-            <p className="text-body-xs font-semibold text-text-muted mt-1">active exposure surface</p>
+
+          {/* Resolved This Week */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Resolved (Week)</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-emerald-600 font-mono">{loading ? '--' : stats.resolvedThisWeek}</p>
+              </div>
+              <p className="text-body-sm text-emerald-600 font-semibold">remediated successfully</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
           </div>
+
+          {/* Average Time To Resolution */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Avg Resolution</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-text-primary font-mono">{loading ? '--' : stats.avgHoursToResolution}h</p>
+              </div>
+              <p className="text-body-sm text-text-muted font-semibold">remediation velocity</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Assets With Findings */}
+          <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
+            <div className="space-y-3">
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Active Assets</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-text-primary font-mono">{loading ? '--' : stats.assetsWithActive}</p>
+              </div>
+              <p className="text-body-sm text-text-muted font-semibold">exposure surface</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+          </div>
+
         </div>
 
         {/* Filters Sidebar + Main Content Table Split Layout */}
-        <div className="grid grid-cols-12 gap-6 px-4">
+        <div className="grid grid-cols-12 gap-6">
           
           {/* Left Advanced Filters Panel (col-span-3) */}
           <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
