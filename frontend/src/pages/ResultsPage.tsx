@@ -251,32 +251,42 @@ export default function ResultsPage() {
   // Extract server details from technology findings if present
   const targetInfo = useMemo(() => {
     const info = {
-      ip: 'Checking...',
+      ip: 'N/A',
       server: 'Unknown',
-      finalUrl: scan?.targetUrl || 'Checking...',
-      code: '200',
-      contentType: 'text/html; charset=utf-8'
+      finalUrl: scan?.targetUrl || 'N/A',
+      code: 'N/A',
+      contentType: 'N/A'
     };
 
-    // Extract IP from ports scan or technology results
+    // First try extracting all HTTPX/ports metadata fields from findings rawData
     findings.forEach((f) => {
-      if (f.module === 'ports' && f.evidence) {
-        // Try extracting IP from raw port findings
+      if (f.rawData) {
+        try {
+          const raw = typeof f.rawData === 'string' ? JSON.parse(f.rawData) : f.rawData;
+          if (raw && typeof raw === 'object') {
+            if (raw.ip) info.ip = raw.ip;
+            if (raw.status_code) info.code = String(raw.status_code);
+            if (raw.content_type) info.contentType = raw.content_type;
+            if (raw.server) info.server = raw.server;
+            if (raw.final_url) info.finalUrl = raw.final_url;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // Fallbacks from title/evidence as backups
+      if (f.module === 'ports' && f.evidence && info.ip === 'N/A') {
         const match = f.evidence.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
         if (match) info.ip = match[1];
       }
-      if (f.module === 'technology' && f.title) {
+      if (f.module === 'technology' && f.title && info.server === 'Unknown') {
         if (f.title.includes('Cloudflare')) info.server = 'Cloudflare';
         else if (f.title.includes('Nginx')) info.server = 'Nginx';
         else if (f.title.includes('Apache')) info.server = 'Apache';
         else if (f.title.includes('Next.js')) info.server = 'Next.js / Node.js';
       }
     });
-
-    if (info.ip === 'Checking...' && scan?.targetUrl) {
-      info.ip = '129.212.208.181'; // Fallback to staging domain IP for presentation consistency
-      info.server = 'Cloudflare';
-    }
 
     return info;
   }, [findings, scan]);

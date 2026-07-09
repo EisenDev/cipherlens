@@ -213,7 +213,18 @@ class TechnologyScanner(BaseScanner):
                     ),
                     raw_data={
                         "technologies": technologies,
-                        "categorized": custom_techs
+                        "categorized": custom_techs,
+                        "ip": raw_data.get("ip") if raw_data else None,
+                        "status_code": raw_data.get("status_code") if raw_data else None,
+                        "final_url": raw_data.get("url") if raw_data else None,
+                        "server": (
+                            raw_data.get("response_headers", {}).get("server") or 
+                            raw_data.get("header", {}).get("server")
+                        ) if raw_data else None,
+                        "content_type": (
+                            raw_data.get("response_headers", {}).get("content-type") or 
+                            raw_data.get("header", {}).get("content-type")
+                        ) if raw_data else None,
                     },
                 )
             )

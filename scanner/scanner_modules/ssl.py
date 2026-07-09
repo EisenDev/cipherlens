@@ -125,6 +125,10 @@ class SSLScanner(BaseScanner):
 
     def execute(self) -> ScannerResult:
         target = sanitize_target(self.target)
+        # Extract domain/IP and port to prevent testssl.sh from failing on scheme prefix (e.g. http://)
+        from utils import domain_from_url
+        clean_target = domain_from_url(target)
+        
         testssl_path = self.config.tool_path("testssl.sh")
         timeout = self._option("timeout", self.config.default_timeout)
 
@@ -139,7 +143,7 @@ class SSLScanner(BaseScanner):
             "--quiet",               # Minimal stdout noise
             "--fast",                # Skip time-consuming checks when in fast mode
             "--nodns", "min",        # Minimal DNS lookups
-            target,
+            clean_target,
         ]
 
         exit_code, stdout, stderr = run_tool(command, timeout=timeout + 30)
@@ -157,11 +161,28 @@ class SSLScanner(BaseScanner):
         findings: List[Finding] = []
         self._parse_testssl_findings(target, raw_findings, findings)
 
+        # Handle connection failures gracefully (e.g. host does not support SSL/TLS/HTTPS)
+        output_combined = stdout + stderr
+        is_connection_error = (
+            "TCP connect problem" in output_combined or 
+            "Connection refused" in output_combined or 
+            "Can't connect" in output_combined or 
+            exit_code in (246, 252, 254)
+        )
+
+        if is_connection_error:
+            status = ScannerStatus.SUCCESS
+            logger.info("SSLScanner: target connection failed/refused. Target likely does not support SSL/TLS on port 443.")
+        elif exit_code in (0, 1):
+            status = ScannerStatus.SUCCESS
+        else:
+            status = ScannerStatus.PARTIAL
+
         return ScannerResult(
             scanner_name=self.SCANNER_NAME,
             scanner_version=self.SCANNER_VERSION,
             target=target,
-            status=ScannerStatus.SUCCESS if exit_code in (0, 1) else ScannerStatus.PARTIAL,
+            status=status,
             findings=findings,
             metadata={"raw_finding_count": len(raw_findings)},
             tool_command=" ".join(str(c) for c in command),

@@ -18,7 +18,7 @@ This list contains features and technical tasks scheduled for future sprints.
 - [x] Create main dashboard containing cards with security scores, scan queues, and recent alerts.
 - [ ] Design scan result detail page featuring interactive vulnerability list.
 - [ ] Implement Framer Motion transitions between views.
-- [ ] [ENHANCEMENT-001] Remove SSL/TLS Summary Cards from Technical Findings Right Drawer (ClickUp: #86d3mpxxp)
+- [x] [ENHANCEMENT-001] Remove SSL/TLS Summary Cards from Technical Findings Right Drawer (ClickUp: #86d3mpxxp)
 
 ## Scanner Engine (Python)
 - [ ] Write TLS certificate expiration and cipher suite validation parser.

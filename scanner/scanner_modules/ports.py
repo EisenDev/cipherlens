@@ -85,10 +85,13 @@ class PortsScanner(BaseScanner):
         raw_items = parse_jsonl(stdout)
 
         open_ports: List[int] = []
+        resolved_ip = None
         for item in raw_items:
             port = item.get("port")
             if port:
                 open_ports.append(int(port))
+            if not resolved_ip and item.get("ip"):
+                resolved_ip = item.get("ip")
 
         findings: List[Finding] = []
         for port in open_ports:
@@ -107,7 +110,7 @@ class PortsScanner(BaseScanner):
                             f"Only allow {meta['service']} from trusted IP ranges."
                         ),
                         cwe_ids=["CWE-200"],
-                        raw_data={"host": host, "port": port, "service": meta["service"]},
+                        raw_data={"host": host, "port": port, "service": meta["service"], "ip": resolved_ip},
                     )
                 )
 
@@ -121,6 +124,11 @@ class PortsScanner(BaseScanner):
                     description=f"naabu discovered {len(open_ports)} open TCP ports on {host}.",
                     evidence=f"Open ports: {sorted(open_ports)}",
                     remediation="Review all open ports. Close unnecessary services and restrict access with firewall rules.",
+                    raw_data={
+                        "host": host,
+                        "open_ports": sorted(open_ports),
+                        "ip": resolved_ip
+                    },
                 )
             )
 

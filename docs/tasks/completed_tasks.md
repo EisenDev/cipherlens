@@ -2,6 +2,38 @@
 
 This log records all completed tasks and their resolution history.
 
+## Phase 3.14: Dynamic Metrics Integration & Cleanups (2026-07-09)
+
+* **Task-029: Phase 3.14 — Target Information & AI Summary Profile Dynamic Integration**
+  * **Date Completed:** 2026-07-09
+  * **Resolution:** Replaced all dummy mock values with dynamic resolved data. Updated ports, technology, and headers scanners to include response metadata (resolved IP, status code, server header, content-type header, final URL) in findings' `rawData`. Updated `ResultsPage.tsx` `targetInfo` useMemo to parse these fields dynamically. Updated backend `ai.py` to perform dynamic socket hostname IP lookup, public GeoIP API location querying, and dynamic katana/crawler endpoint metrics parsing.
+  * **Status:** Complete ✅
+
+* **Task-028: Phase 3.14 — [ENHANCEMENT-001] Remove SSL/TLS Summary Cards**
+  * **Date Completed:** 2026-07-08
+  * **Resolution:** Removed the hardcoded `SSL / TLS Summary` widget cards from ResultsPage.tsx right drawer.
+  * **Status:** Complete ✅
+
+## Phase 3.13: SSL/TLS Connection Stabilizations & AI Panel Adjustments (2026-07-08)
+
+* **Task-027: Phase 3.14 — Scanner Engine Validation Audit**
+  * **Date Completed:** 2026-07-08
+  * **Resolution:** Conducted a comprehensive technical validation audit of the CipherLens scanner engine. Evaluated commands, arguments, parsers, database models, severity mappings, and aggregation logic for all 24 scanner modules. Identified two major gaps: 11/24 modules are currently placeholder scaffolds returning successful status with zero findings, and the backend scan execution pipeline never calculates or persists the security score to the database (leaving the score column as NULL). Produced a detailed markdown validation report artifact listing status indicators for every module.
+
+* **Task-025: Phase 3.13 — SSL/TLS Targets, Markdown parser, AI styles**
+  * **Date Completed:** 2026-07-08
+  * **Resolution:** Fixed testssl.sh execution against http targets by introducing domain_from_url in ssl.py and tls.py to extract raw hostnames and ports. Gracefully handled socket refused and scheme validation failure exit codes (246, 252, 254) as ScannerStatus.SUCCESS with 0 findings so scans against non-SSL sites complete successfully without crashing the runner. Created a React markdown parser helper in ResultsPage.tsx to dynamically style **, ###, * markers. Merged priority and risk cards into a single cohesive panel, removed violet colors, changed stars to shields, and removed third-party branding pills from the AI summary layout.
+
+* **Task-026: Phase 3.13 — Website Information & Target Profile Removal**
+  * **Date Completed:** 2026-07-08
+  * **Resolution:** Completely removed the "Website Information" / "Target Profile & Overview" trigger button, its React hooks/states, its useEffect hook fetching the api, and its modal rendering block from the bottom of ResultsPage.tsx. Also deleted the backend route `/api/scans/{id}/profile-summary` inside scans.py.
+
+## Phase 3.12: Gemini AI Connection & Target Profile Modal Integration (2026-07-08)
+
+* **Task-024: Phase 3.12 — Gemini AI & Target Profile Modal**
+  * **Date Completed:** 2026-07-08
+  * **Resolution:** Connected the backend to Gemini API using a direct HTTP request service utilizing the API key inside .env, and configured a local file-based JSON cache inside backend/data/ai_cache/ to avoid duplicate API calls. Exposed endpoint /api/scans/results/{finding_id}/ai-analysis (finding summary, explanation, business impact, attack scenarios, priority, and next steps) and /api/scans/{id}/profile-summary (scan-wide asset classification, tech stack, exposure status, certificate metadata, and description). Overhauled ResultsPage.tsx right drawer to split results into Technical Findings (factual scanner data) and AI Security Analysis (Gemini-powered insights). Integrated a high-fidelity Target Profile & Overview modal showing visual mockup, AI description, confidence rating, classification details, attack surface stats, exposure overview, asset details, and certificates.
+
 ## Phase 3.11: Scanner Details Layout Stabilization (2026-07-08)
 
 * **Task-023: Phase 3.11 — Scanner Details Card Layout Fix**

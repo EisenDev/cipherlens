@@ -11,6 +11,7 @@ from database.session import get_db
 from database.models import User, Asset, Scan, ScanJob, ScanModule, ScanLog, ScanResult
 from api.deps import get_current_user
 from schemas.schemas import ScanCreate, ScanResponse, PaginatedScans, ScanPatch, ScanProgressResponse, ScanLogsResponse, ModuleProgressSchema, ScanLogItemSchema, ScanResultsResponseSchema
+from services.ai import AIService
 
 # Dynamically append scanner framework path to sys.path
 SCANNER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "scanner"))
@@ -844,6 +845,23 @@ def get_scan_results(
         "scanId": id,
         "results": results
     }
+
+
+@router.get("/results/{finding_id}/ai-analysis")
+def get_finding_ai_analysis(
+    finding_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    finding = db.query(ScanResult).join(Scan).join(Asset).filter(
+        ScanResult.id == finding_id,
+        Asset.userId == current_user.id
+    ).first()
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+
+    analysis = AIService.get_finding_analysis(finding, finding.scan.asset.url)
+    return analysis
 
 
 

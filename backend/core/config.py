@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     PORT: int = 3005
     NODE_ENV: str = "development"
     
+    # AI Orchestration
+    GEMINI_API_KEY: str = ""
+    
     # Database Settings
     DATABASE_URL: str = "postgresql://cipherlens_user:cipherlens_secure_password_123@localhost:5434/cipherlens"
     

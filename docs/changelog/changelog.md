@@ -6,6 +6,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.13] - 2026-07-09
+
+### Added
+- **Dynamic Port, Tech, and Headers Scanners Metadata**: Enhanced `ports.py`, `technology.py`, and `headers.py` scanner modules to output rich request metadata (resolved IP, status code, server header, content-type header, final URL) directly into the finding's `raw_data` dictionary.
+
+### Fixed
+- **Frontend Target Information Mocks**: Replaced hardcoded values (IP fallback `129.212.208.181`, server fallback `Cloudflare`, status code `200`, content-type `text/html; charset=utf-8`) with dynamic parsing of scan findings' raw data in `ResultsPage.tsx`. Uses standard `N/A` and `Unknown` values when data is not yet resolved or applicable (e.g. for repositories).
+- **Backend AI Profile Summary Mocks**: Updated `get_profile_summary` in `ai.py` to resolve target details dynamically:
+  - Added dynamic socket hostname IP lookup for scanned assets.
+  - Setup a public GeoIP API check (`ip-api.com`) to query the real country, hosting provider, and ASN.
+  - Implemented dynamic parser of katana/crawler findings to count and classify crawled pages, api endpoints, logins, and admin interfaces.
+
+## [0.9.12] - 2026-07-08
+
+### Removed
+- **Website Information & Target Profile**: Completely removed the "Website Information & Target Profile" modal, its trigger button, its React hooks/states, its backend route (`/api/scans/{id}/profile-summary`), and all associated connections across the system.
+
+### Fixed
+- **SSL / TLS Scanner target resolution**: Fixed a bug where target URLs containing scheme prefixes (e.g. `http://` or `https://`) were passed directly to `testssl.sh`, causing scheme validation exit code `254` and TCP connection errors. Introduced `domain_from_url` sanitization to extract pure hostnames and ports for the binary wrapper.
+- **SSL / TLS Socket Refused Graceful Handling**: Re-mapped connection timeouts, connection refused codes (`246`), and socket errors as `ScannerStatus.SUCCESS` with zero findings, preventing scans on non-HTTPS sites from aborting the pipeline with module execution errors.
+- **Drawer Text Markdown Parsing**: Created a React `renderFormattedText` parser in `ResultsPage.tsx` that dynamically formats markdown bold flags (`**`), list items (`* `), headers (`###`), and paragraphs into native Tailwind JSX elements.
+- **AI Drawer Panel & Modal Restyling**: Removed violet theme highlights, replaced sparkles `✨` with clean shield/list icons, dropped Gemini Powered sub-badges, and merged Remediation Priority and Risk Level cards into a single cohesive panel to resolve vertical stretching.
+
+## [0.9.11] - 2026-07-08
+
+### Added
+- **Gemini AI Integration**: Connected the backend to Gemini API using a direct HTTP connector with local JSON filesystem cache persistence:
+  - Added `@router.get("/results/{finding_id}/ai-analysis")` endpoint generating finding-specific Executive Summary, Risk Explanation, Business Impact, Attack Scenarios, Remediation Checklist, and Priority.
+  - Added `@router.get("/{id}/profile-summary")` endpoint generating scan-wide Target Application Description and Classification (category, industry, purpose) combined with technical stats.
+- **Split Drawer Results Layout**: Separated the Right Results Drawer on the frontend into **Technical Findings** (factual data, TLS badges, stack badges, evidence terminal, cleaned real-data tool details metrics) and **AI Security Analysis** (AI Executive Summary with warning badge, priority, explanation, attack scenarios, next steps checklist).
+- **Target Profile & Overview Modal**: Integrated a high-fidelity popup modal triggered by a `Website Information` button on the header card. Renders a mockup screenshot, AI platform summary, confidence rating, technology tags, and structured panels for Attack Surface, Exposure & Security, Asset Info, and Certificate details.
+
 ## [0.9.10] - 2026-07-08
 
 ### Fixed

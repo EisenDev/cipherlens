@@ -229,7 +229,15 @@ class HeadersScanner(BaseScanner):
                         remediation=meta["remediation"],
                         references=meta.get("references", []),
                         cwe_ids=meta.get("cwe_ids", []),
-                        raw_data={"header_name": header_name, "response_url": raw_data.get("url")},
+                        raw_data={
+                            "header_name": header_name,
+                            "response_url": raw_data.get("url"),
+                            "ip": raw_data.get("ip") if raw_data else None,
+                            "status_code": raw_data.get("status_code") if raw_data else None,
+                            "final_url": raw_data.get("url") if raw_data else None,
+                            "server": response_headers.get("server"),
+                            "content_type": response_headers.get("content-type"),
+                        },
                     )
                 )
 
@@ -246,7 +254,15 @@ class HeadersScanner(BaseScanner):
                         description=check["description"],
                         evidence=f"{header}: {response_headers[header]}",
                         remediation=check["remediation"],
-                        raw_data={"header_name": header, "value": response_headers[header]},
+                        raw_data={
+                            "header_name": header,
+                            "value": response_headers[header],
+                            "ip": raw_data.get("ip") if raw_data else None,
+                            "status_code": raw_data.get("status_code") if raw_data else None,
+                            "final_url": raw_data.get("url") if raw_data else None,
+                            "server": response_headers.get("server"),
+                            "content_type": response_headers.get("content-type"),
+                        },
                     )
                 )
 
