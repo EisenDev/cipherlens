@@ -178,13 +178,132 @@ export default function ResultsPage() {
     return counts;
   }, [findings]);
 
-  // Determine overall risk level
-  const riskLevel = useMemo(() => {
-    if (stats.CRITICAL > 0 || stats.HIGH > 0) return 'HIGH';
-    if (stats.MEDIUM > 0) return 'MEDIUM';
-    if (stats.LOW > 0) return 'LOW';
-    return 'CLEAN';
-  }, [stats]);
+  // Design a professional security scoring engine
+  const scoreDetails = useMemo(() => {
+    // 1. Get completed modules count from scan
+    const completedModulesCount = scan?.modules
+      ? Object.values(scan.modules).filter((m: any) => m.status === 'COMPLETED').length
+      : 0;
+    
+    const nCompleted = completedModulesCount || 1;
+    const mStd = 10.0;
+    let cProfile = nCompleted / mStd;
+    cProfile = Math.max(0.3, Math.min(1.5, cProfile));
+
+    // 2. Group & Deduplicate findings
+    const uniqueFindings: Record<string, { severity: string; cvss: number | null; isExploitable: boolean }> = {};
+    findings.forEach((f) => {
+      const severity = (f.severity || 'INFO').toUpperCase();
+      if (severity === 'INFO') return;
+
+      const groupKey = `${f.module || 'unknown'}:${f.findingCode || f.title || 'unknown'}`;
+      
+      let cvss: number | null = null;
+      let isExploitable = false;
+
+      // Extract CVSS and exploitability from rawData
+      if (f.rawData) {
+        try {
+          const raw = typeof f.rawData === 'string' ? JSON.parse(f.rawData) : f.rawData;
+          if (raw && typeof raw === 'object') {
+            const cvssVal = raw.cvss ?? raw.cvss_score ?? raw['cvss-score'];
+            if (cvssVal !== undefined && cvssVal !== null) {
+              cvss = Number(cvssVal);
+            }
+            if (raw.exploitable || raw.epss || raw.kev) {
+              isExploitable = true;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const titleLower = (f.title || '').toLowerCase();
+      const descLower = (f.description || '').toLowerCase();
+      if (
+        titleLower.includes('exploit') || descLower.includes('exploit') ||
+        titleLower.includes('cve-') || descLower.includes('cve-') ||
+        titleLower.includes('unauthenticated') || descLower.includes('unauthenticated') ||
+        titleLower.includes('remote code execution') || titleLower.includes('rce') ||
+        descLower.includes('remote code execution') || descLower.includes('rce')
+      ) {
+        isExploitable = true;
+      }
+
+      if (!uniqueFindings[groupKey]) {
+        uniqueFindings[groupKey] = {
+          severity,
+          cvss,
+          isExploitable
+        };
+      } else {
+        const curr = uniqueFindings[groupKey];
+        if (cvss !== null) {
+          curr.cvss = Math.max(curr.cvss || 0, cvss);
+        }
+        if (isExploitable) {
+          curr.isExploitable = true;
+        }
+        const sevHierarchy: Record<string, number> = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
+        if (sevHierarchy[severity] > sevHierarchy[curr.severity]) {
+          curr.severity = severity;
+        }
+      }
+    });
+
+    // 3. Calculate Threat Penalty Sum
+    const severityWeights: Record<string, number> = {
+      'CRITICAL': 10.0,
+      'HIGH': 7.0,
+      'MEDIUM': 4.0,
+      'LOW': 1.5
+    };
+
+    let totalPenalty = 0.0;
+    Object.values(uniqueFindings).forEach((v) => {
+      const baseWeight = v.cvss !== null ? v.cvss : (severityWeights[v.severity] || 0);
+      const multiplier = v.isExploitable ? 1.25 : 1.0;
+      const threatWeight = Math.min(10.0, baseWeight * multiplier);
+      totalPenalty += threatWeight;
+    });
+
+    // 4. Compute Final Security Score using Exponential Risk Decay
+    const lambda = 0.035;
+    const exponent = -lambda * (totalPenalty / cProfile);
+    // Prioritize scan.score from backend DB if set, otherwise fallback to frontend calculation
+    const finalScore = scan?.score !== null && scan?.score !== undefined
+      ? scan.score
+      : Math.max(0, Math.min(100, Math.round(100 * Math.exp(exponent))));
+
+    // 5. Determine Overall Security Posture
+    let posture = 'A - Excellent';
+    if (finalScore >= 90) posture = 'A - Excellent';
+    else if (finalScore >= 80) posture = 'B - Good';
+    else if (finalScore >= 70) posture = 'C - Fair';
+    else if (finalScore >= 50) posture = 'D - Weak';
+    else posture = 'F - Critical';
+
+    // 6. Determine Risk Level
+    let risk = 'LOW';
+    if (finalScore >= 90) risk = 'LOW';
+    else if (finalScore >= 70) risk = 'MEDIUM';
+    else if (finalScore >= 50) risk = 'HIGH';
+    else risk = 'CRITICAL';
+
+    // 7. Determine Confidence Level
+    let confidence = 'HIGH';
+    if (nCompleted >= 10) confidence = 'HIGH';
+    else if (nCompleted >= 5) confidence = 'MEDIUM';
+    else confidence = 'LOW';
+
+    return {
+      score: finalScore,
+      posture,
+      riskLevel: risk,
+      confidenceLevel: confidence
+    };
+  }, [findings, scan]);
 
   // Group findings count by module
   const moduleFindingsCounts = useMemo(() => {
@@ -561,63 +680,43 @@ export default function ResultsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Card 1: Risk Overview */}
-            <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[260px] text-left">
+            <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[270px] text-left">
               <p className="text-body-sm font-bold text-text-primary uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Risk Overview</p>
               
               <div className="flex items-center justify-between gap-6 flex-1">
-                {/* Donut chart overlay */}
-                <div className="relative w-32 h-32 flex items-center justify-center flex-shrink-0">
+                {/* Donut chart overlay representing Security Score */}
+                <div className="relative w-28 h-28 flex items-center justify-center flex-shrink-0">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    {/* Track */}
                     <circle cx="18" cy="18" r="15.915" fill="none" stroke="#F1F1EF" strokeWidth="3.2" />
                     
-                    {/* Critical (red) segment */}
-                    {stats.CRITICAL > 0 && (
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#EF4444" strokeWidth="3.6"
-                        strokeDasharray={`${(stats.CRITICAL / (stats.total || 1)) * 100} ${100 - (stats.CRITICAL / (stats.total || 1)) * 100}`}
-                        strokeDashoffset="0"
-                      />
-                    )}
-                    {/* High (orange) segment */}
-                    {stats.HIGH > 0 && (
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#F97316" strokeWidth="3.6"
-                        strokeDasharray={`${(stats.HIGH / (stats.total || 1)) * 100} ${100 - (stats.HIGH / (stats.total || 1)) * 100}`}
-                        strokeDashoffset={`-${(stats.CRITICAL / (stats.total || 1)) * 100}`}
-                      />
-                    )}
-                    {/* Medium (yellow) segment */}
-                    {stats.MEDIUM > 0 && (
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#F59E0B" strokeWidth="3.6"
-                        strokeDasharray={`${(stats.MEDIUM / (stats.total || 1)) * 100} ${100 - (stats.MEDIUM / (stats.total || 1)) * 100}`}
-                        strokeDashoffset={`-${((stats.CRITICAL + stats.HIGH) / (stats.total || 1)) * 100}`}
-                      />
-                    )}
-                    {/* Low (blue) segment */}
-                    {stats.LOW > 0 && (
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#3B82F6" strokeWidth="3.6"
-                        strokeDasharray={`${(stats.LOW / (stats.total || 1)) * 100} ${100 - (stats.LOW / (stats.total || 1)) * 100}`}
-                        strokeDashoffset={`-${((stats.CRITICAL + stats.HIGH + stats.MEDIUM) / (stats.total || 1)) * 100}`}
-                      />
-                    )}
+                    {/* Security Score Filled Circle */}
+                    <circle
+                      cx="18" cy="18" r="15.915" fill="none"
+                      stroke={
+                        scoreDetails.score >= 90 ? "#10B981" : // emerald-500
+                        scoreDetails.score >= 70 ? "#F59E0B" : // amber-500
+                        scoreDetails.score >= 50 ? "#F97316" : // orange-500
+                        "#EF4444" // red-500
+                      }
+                      strokeWidth="3.6"
+                      strokeDasharray={`${scoreDetails.score} ${100 - scoreDetails.score}`}
+                      strokeLinecap="round"
+                      className="transition-all duration-1000 ease-out"
+                    />
                   </svg>
 
                   {/* Inner Risk score label */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className={`text-title-h3 font-black tracking-tight leading-none ${
-                      riskLevel === 'HIGH' ? 'text-red-600' :
-                      riskLevel === 'MEDIUM' ? 'text-yellow-600' :
-                      riskLevel === 'LOW' ? 'text-blue-600' : 'text-green-600'
+                    <span className={`text-title-h2 font-black tracking-tight leading-none ${
+                      scoreDetails.score >= 90 ? "text-emerald-600" :
+                      scoreDetails.score >= 70 ? "text-amber-600" :
+                      scoreDetails.score >= 50 ? "text-orange-600" :
+                      "text-red-600"
                     }`}>
-                      {riskLevel}
+                      {scoreDetails.score}
                     </span>
-                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mt-1 select-none">Risk</span>
+                    <span className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider mt-0.5 select-none">Score</span>
                   </div>
                 </div>
 
@@ -664,6 +763,37 @@ export default function ResultsPage() {
                     <span>Total Findings</span>
                     <span>{stats.total}</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Bounded Score metrics footer */}
+              <div className="grid grid-cols-3 gap-2 pt-2.5 mt-2.5 border-t border-border-warm/40 text-center select-none">
+                <div>
+                  <p className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider">Posture</p>
+                  <p className="text-body-xs font-bold text-text-primary mt-0.5 truncate" title={scoreDetails.posture}>
+                    {scoreDetails.posture}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider">Risk Level</p>
+                  <span className={`inline-block text-[8.5px] font-extrabold px-1.5 py-0.5 rounded-full mt-0.5 ${
+                    scoreDetails.riskLevel === 'LOW' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                    scoreDetails.riskLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                    scoreDetails.riskLevel === 'HIGH' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                    'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {scoreDetails.riskLevel}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[7.5px] font-bold text-text-muted uppercase tracking-wider">Confidence</p>
+                  <span className={`inline-block text-[8.5px] font-extrabold px-1.5 py-0.5 rounded-full mt-0.5 ${
+                    scoreDetails.confidenceLevel === 'HIGH' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                    scoreDetails.confidenceLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                    'bg-slate-50 text-slate-700 border border-slate-200'
+                  }`}>
+                    {scoreDetails.confidenceLevel}
+                  </span>
                 </div>
               </div>
 

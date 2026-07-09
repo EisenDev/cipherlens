@@ -236,6 +236,11 @@ class ScanExecutionService:
                 else:
                     scan.status = "COMPLETED"
                     self._add_log(scan_id, "INFO", f"Security scan completed successfully in {duration_total}s.")
+                    try:
+                        scan.score = self._calculate_scan_score(scan_id)
+                        self._add_log(scan_id, "INFO", f"Security Score calculated: {scan.score}/100")
+                    except Exception as score_err:
+                        logger.error(f"Failed to calculate security score for scan {scan_id}: {score_err}")
             else:
                 # Cancelled finalize
                 scan.completedAt = datetime.now(timezone.utc)
@@ -261,3 +266,98 @@ class ScanExecutionService:
         )
         self.db.add(log)
         self.db.commit()
+
+    def _calculate_scan_score(self, scan_id: str) -> int:
+        """
+        Calculates a professional security score from 0 to 100 based on scan findings.
+        Implements deduplication, severity weighting, CVSS inputs, exploitability,
+        and profile completeness normalization.
+        """
+        from database.models import ScanResult, ScanModule
+        import math
+
+        # 1. Fetch completed modules
+        modules = self.db.query(ScanModule).filter(
+            ScanModule.scanId == scan_id,
+            ScanModule.status == "COMPLETED"
+        ).all()
+        n_completed = len(modules)
+        if n_completed == 0:
+            n_completed = 1
+
+        # 2. Calculate completeness normalization factor
+        m_std = 10.0
+        c_profile = n_completed / m_std
+        c_profile = max(0.3, min(1.5, c_profile))
+
+        # 3. Fetch findings
+        findings = self.db.query(ScanResult).filter(ScanResult.scanId == scan_id).all()
+        
+        # Group and deduplicate findings by (module, findingCode/title)
+        unique_findings = {}
+        for f in findings:
+            severity = (f.severity or "INFO").upper()
+            if severity == "INFO":
+                continue
+                
+            group_key = (f.module or "unknown", f.findingCode or f.title or "unknown")
+            
+            # Parse rawData for CVSS and exploitability
+            cvss = None
+            is_exploitable = False
+            if f.rawData:
+                try:
+                    raw = json.loads(f.rawData)
+                    if isinstance(raw, dict):
+                        cvss_val = raw.get("cvss") or raw.get("cvss_score") or raw.get("cvss-score")
+                        if cvss_val is not None:
+                            cvss = float(cvss_val)
+                        if raw.get("exploitable") or raw.get("epss") or raw.get("kev"):
+                            is_exploitable = True
+                except Exception:
+                    pass
+                    
+            title_lower = (f.title or "").lower()
+            desc_lower = (f.description or "").lower()
+            if any(kw in title_lower or kw in desc_lower for kw in ["exploit", "cve-", "unauthenticated", "remote code execution", "rce"]):
+                is_exploitable = True
+
+            if group_key not in unique_findings:
+                unique_findings[group_key] = {
+                    "severity": severity,
+                    "cvss": cvss,
+                    "is_exploitable": is_exploitable
+                }
+            else:
+                curr = unique_findings[group_key]
+                if cvss is not None:
+                    curr["cvss"] = max(curr["cvss"] or 0.0, cvss)
+                if is_exploitable:
+                    curr["is_exploitable"] = True
+                sev_hierarchy = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+                if sev_hierarchy.get(severity, 0) > sev_hierarchy.get(curr["severity"], 0):
+                    curr["severity"] = severity
+
+        # 4. Calculate Threat Penalty Sum
+        severity_weights = {
+            "CRITICAL": 10.0,
+            "HIGH": 7.0,
+            "MEDIUM": 4.0,
+            "LOW": 1.5
+        }
+        
+        total_penalty = 0.0
+        for v in unique_findings.values():
+            sev = v["severity"]
+            base_weight = v["cvss"] if v["cvss"] is not None else severity_weights.get(sev, 0.0)
+            
+            multiplier = 1.25 if v["is_exploitable"] else 1.0
+            threat_weight = min(10.0, base_weight * multiplier)
+            total_penalty += threat_weight
+
+        # 5. Compute Security Score using Exponential Risk Decay
+        lambda_constant = 0.035
+        exponent = -lambda_constant * (total_penalty / c_profile)
+        score = int(round(100.0 * math.exp(exponent)))
+        
+        return max(0, min(100, score))

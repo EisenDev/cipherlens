@@ -4,6 +4,11 @@ This log records all completed tasks and their resolution history.
 
 ## Phase 3.14: Dynamic Metrics Integration & Cleanups (2026-07-09)
 
+* **Task-030: Phase 3.14 — [ENHANCEMENT-002] Security Scoring Engine**
+  * **Date Completed:** 2026-07-09
+  * **Resolution:** Designed and implemented a professional security scoring engine using an exponential decay threat model. Integrates vulnerability deduplication, baseline severity weights, CVSS values, exploitability multipliers (1.25x), and scan profile completeness normalization (completed modules count / 10). Automatically calculates and saves the score to PostgreSQL `Scan.score` when finalized on the backend, and runs the same formula on the frontend `ResultsPage.tsx` to display Security Score progress dial, Overall Security Posture, Risk Level, and Confidence Level.
+  * **Status:** Complete ✅
+
 * **Task-029: Phase 3.14 — Target Information & AI Summary Profile Dynamic Integration**
   * **Date Completed:** 2026-07-09
   * **Resolution:** Replaced all dummy mock values with dynamic resolved data. Updated ports, technology, and headers scanners to include response metadata (resolved IP, status code, server header, content-type header, final URL) in findings' `rawData`. Updated `ResultsPage.tsx` `targetInfo` useMemo to parse these fields dynamically. Updated backend `ai.py` to perform dynamic socket hostname IP lookup, public GeoIP API location querying, and dynamic katana/crawler endpoint metrics parsing.

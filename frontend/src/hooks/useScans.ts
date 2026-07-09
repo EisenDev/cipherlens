@@ -188,6 +188,7 @@ export function useScanLogs(id: string | null, enabled: boolean = false) {
 export interface RealScanStatus {
   status: string;
   progress: number;
+  score: number | null;
   targetUrl: string;
   scanType: string;
   targetType: string;

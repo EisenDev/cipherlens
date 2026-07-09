@@ -752,6 +752,7 @@ def get_scan_status(
     return {
         "status": scan.status,
         "progress": scan.progress,
+        "score": scan.score,
         "targetUrl": scan.asset.url,
         "scanType": scan.scanType,
         "targetType": scan.asset.type,

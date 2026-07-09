@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Dynamic Port, Tech, and Headers Scanners Metadata**: Enhanced `ports.py`, `technology.py`, and `headers.py` scanner modules to output rich request metadata (resolved IP, status code, server header, content-type header, final URL) directly into the finding's `raw_data` dictionary.
+- **CipherLens Security Scoring Engine**: Implemented a professional, deterministic security scoring engine (0-100 score) using exponential risk decay:
+  - Supports vulnerability signature-based deduplication to prevent double-penalizing repeated findings.
+  - Weights risk by baseline severities (Critical=10.0, High=7.0, Medium=4.0, Low=1.5) and CVSS scores when available.
+  - Adjusts threat weight using a 1.25x Exploitability Multiplier for verified exploits or RCE keywords.
+  - Normalizes scores based on Scan Profile Completeness (completed modules count / 10).
+  - Automatically calculates and persists score inside the database `Scan.score` when finalized.
+  - Renders dynamic Security Score circle progress, Overall Security Posture grade (e.g. A-Excellent to F-Critical), Risk Level, and scan Confidence Level in `ResultsPage.tsx`.
 
 ### Fixed
 - **Frontend Target Information Mocks**: Replaced hardcoded values (IP fallback `129.212.208.181`, server fallback `Cloudflare`, status code `200`, content-type `text/html; charset=utf-8`) with dynamic parsing of scan findings' raw data in `ResultsPage.tsx`. Uses standard `N/A` and `Unknown` values when data is not yet resolved or applicable (e.g. for repositories).
