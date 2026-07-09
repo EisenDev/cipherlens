@@ -11,9 +11,9 @@ import {
   Sparkles, 
   Info, 
   Search, 
-  ChevronRight, 
   X, 
   ChevronDown, 
+  ChevronRight,
   Calendar,
   AlertTriangle,
   ArrowUpDown,
@@ -434,16 +434,13 @@ export default function FindingsPage() {
     <DashboardLayout activePage="findings">
       <div className="py-8 px-10 space-y-7 w-full">
         
-        {/* Breadcrumb & Main Title Row */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border-warm pb-4">
-          <div className="text-left">
-            <p className="text-[10px] uppercase font-bold tracking-widest text-text-muted flex items-center gap-1 mb-1">
-              Findings <ChevronRight className="w-2.5 h-2.5 text-text-muted" /> All Findings
-            </p>
+        {/* Main Title Row */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
             <h1 className="text-3xl font-light text-text-primary tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
               All Findings
             </h1>
-            <p className="text-xs text-text-muted mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+            <p className="text-xs text-text-muted mt-1.5" style={{ fontFamily: 'var(--font-body)' }}>
               View, filter and manage all security findings from your scans.
             </p>
           </div>
@@ -525,7 +522,7 @@ export default function FindingsPage() {
           {/* Critical Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Critical</p>
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Critical</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-extrabold text-red-600 font-mono">{loading ? '--' : stats.criticalActive}</p>
               </div>
@@ -543,7 +540,7 @@ export default function FindingsPage() {
           {/* High Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">High</p>
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">High</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-extrabold text-orange-600 font-mono">{loading ? '--' : stats.highActive}</p>
               </div>
@@ -561,7 +558,7 @@ export default function FindingsPage() {
           {/* Medium Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Medium</p>
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Medium</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-extrabold text-amber-600 font-mono">{loading ? '--' : stats.mediumActive}</p>
               </div>
@@ -579,7 +576,7 @@ export default function FindingsPage() {
           {/* Low Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Low</p>
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Low</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-extrabold text-blue-600 font-mono">{loading ? '--' : stats.lowActive}</p>
               </div>
@@ -595,7 +592,7 @@ export default function FindingsPage() {
           {/* Informational Findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Informational</p>
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Informational</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-extrabold text-slate-600 font-mono">{loading ? '--' : stats.infoActive}</p>
               </div>
@@ -613,7 +610,7 @@ export default function FindingsPage() {
           {/* Total active findings */}
           <div className="card bg-white p-5 rounded-2xl border border-border-warm flex items-start justify-between shadow-sm relative overflow-hidden text-left">
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Total Findings</p>
+              <p className="text-body-sm font-bold text-text-muted uppercase tracking-wider">Total Findings</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-extrabold text-purple-700 font-mono">{loading ? '--' : stats.totalActive}</p>
               </div>
