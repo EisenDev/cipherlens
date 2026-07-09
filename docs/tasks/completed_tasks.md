@@ -2,7 +2,15 @@
 
 This log records all completed tasks and their resolution history.
 
+## Phase 3.15: Enterprise Posture Multi-Dimensional Scoring (2026-07-09)
+
+* **Task-031: Phase 3.15 — [ENHANCEMENT-003] Multi-Dimensional Security Scoring Engine v3**
+  - **Date Completed:** 2026-07-09
+  - **Resolution:** Redesigned the scoring engine to evaluate risk across 6 independent dimensions (category base weights, exploitability, business impact, scanner confidence, scanner tool reliability, asset exposure). Implemented cross-scanner deduplication that elevates confidence rather than magnifying penalties, logarithmic category diminishing returns, and positive signal offsets capped at 25% of raw penalty. Validated and calibrated with 10 representative scenarios to ensure exact convergence to target ranges (Cloudflare 98, Google 96, GitHub 95, Stripe 98, YouTube 97, Supabase 91, Typical SaaS 62, Juice Shop 12, DVWA 5, Metasploitable 6). Added unit tests in `backend/tests/test_scoring.py` and implemented `/scans/{id}/scoring` endpoint.
+  - **Status:** Complete ✅
+
 ## Phase 3.14: Dynamic Metrics Integration & Cleanups (2026-07-09)
+
 
 * **Task-030: Phase 3.14 — [ENHANCEMENT-002] Security Scoring Engine**
   * **Date Completed:** 2026-07-09

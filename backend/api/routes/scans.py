@@ -749,10 +749,46 @@ def get_scan_status(
             except Exception:
                 current_tool = scan.currentModule
 
+    # Run the scoring engine v3
+    from utils.scoring import score_from_db
+    try:
+        scoring_res = score_from_db(db, id)
+        overall_score = scoring_res.overall_score
+        posture = scoring_res.posture
+        confidence = scoring_res.scan_confidence
+        attack_surface = scoring_res.attack_surface
+        positive_signals = scoring_res.positive_signals
+        negative_signals = scoring_res.negative_signals
+        critical_findings = scoring_res.critical_findings
+        top_contributors = scoring_res.top_contributors
+        module_scores_data = scoring_res.module_scores
+        score_breakdown = scoring_res.score_breakdown
+    except Exception as e:
+        overall_score = scan.score or 100
+        posture = "Excellent" if overall_score >= 95 else "Good" if overall_score >= 88 else "Fair"
+        confidence = "LOW"
+        attack_surface = 0
+        positive_signals = 0
+        negative_signals = 0
+        critical_findings = 0
+        top_contributors = []
+        module_scores_data = {}
+        score_breakdown = {}
+
     return {
         "status": scan.status,
         "progress": scan.progress,
-        "score": scan.score,
+        "score": overall_score,  # legacy compatibility
+        "overallScore": overall_score,
+        "posture": posture,
+        "confidence": confidence,
+        "attackSurface": attack_surface,
+        "positiveSignals": positive_signals,
+        "negativeSignals": negative_signals,
+        "criticalFindings": critical_findings,
+        "topContributors": top_contributors,
+        "moduleScores": module_scores_data,
+        "scoreBreakdown": score_breakdown,
         "targetUrl": scan.asset.url,
         "scanType": scan.scanType,
         "targetType": scan.asset.type,
@@ -863,6 +899,41 @@ def get_finding_ai_analysis(
 
     analysis = AIService.get_finding_analysis(finding, finding.scan.asset.url)
     return analysis
+
+
+@router.get("/{id}/scoring")
+def get_scan_scoring(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    scan = db.query(Scan).join(Asset).filter(Scan.id == id, Asset.userId == current_user.id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    from utils.scoring import score_from_db
+    try:
+        res = score_from_db(db, id)
+        # Convert module_scores from dict of details to simple dict of scores as requested
+        mod_scores = {k: v["score"] for k, v in res.module_scores.items()}
+        
+        return {
+            "overallScore": res.overall_score,
+            "posture": res.posture,
+            "confidence": res.scan_confidence,
+            "attackSurface": res.attack_surface,
+            "positiveSignals": res.positive_signals,
+            "negativeSignals": res.negative_signals,
+            "criticalFindings": res.critical_findings,
+            "topContributors": res.top_contributors,
+            "moduleScores": mod_scores,
+            "scoreBreakdown": res.score_breakdown
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate security score breakdown: {str(e)}"
+        )
 
 
 

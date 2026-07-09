@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import { useRealScanStatus, useScanResults } from '../hooks/useScans';
 import type { ScanResultItem } from '../hooks/useScans';
 import { apiRequest } from '../api/client';
+import { calculateScore } from '../utils/scoring';
 
 const cleanToolName = (toolStr: string | null) => {
   if (!toolStr) return 'N/A';
@@ -178,132 +179,52 @@ export default function ResultsPage() {
     return counts;
   }, [findings]);
 
-  // Design a professional security scoring engine
+  // ── Security Scoring Engine v2 ───────────────────────────────────────
   const scoreDetails = useMemo(() => {
-    // 1. Get completed modules count from scan
-    const completedModulesCount = scan?.modules
-      ? Object.values(scan.modules).filter((m: any) => m.status === 'COMPLETED').length
-      : 0;
-    
-    const nCompleted = completedModulesCount || 1;
-    const mStd = 10.0;
-    let cProfile = nCompleted / mStd;
-    cProfile = Math.max(0.3, Math.min(1.5, cProfile));
+    // Build completed module list from scan.modules
+    const completedModuleNames: string[] = scan?.modules
+      ? Object.entries(scan.modules)
+          .filter(([, m]) => (m as { status: string }).status === 'COMPLETED')
+          .map(([name]) => name)
+      : [];
 
-    // 2. Group & Deduplicate findings
-    const uniqueFindings: Record<string, { severity: string; cvss: number | null; isExploitable: boolean }> = {};
-    findings.forEach((f) => {
-      const severity = (f.severity || 'INFO').toUpperCase();
-      if (severity === 'INFO') return;
+    // Run the canonical v3 scoring engine
+    const result = calculateScore(
+      findings.map(f => ({
+        title: f.title,
+        severity: f.severity,
+        module: f.module ?? undefined,
+        tool: f.tool ?? undefined,
+        description: f.description,
+        evidence: f.evidence ?? undefined,
+        rawData: f.rawData ?? undefined,
+        findingCode: f.findingCode,
+      })),
+      completedModuleNames,
+    );
 
-      const groupKey = `${f.module || 'unknown'}:${f.findingCode || f.title || 'unknown'}`;
-      
-      let cvss: number | null = null;
-      let isExploitable = false;
-
-      // Extract CVSS and exploitability from rawData
-      if (f.rawData) {
-        try {
-          const raw = typeof f.rawData === 'string' ? JSON.parse(f.rawData) : f.rawData;
-          if (raw && typeof raw === 'object') {
-            const cvssVal = raw.cvss ?? raw.cvss_score ?? raw['cvss-score'];
-            if (cvssVal !== undefined && cvssVal !== null) {
-              cvss = Number(cvssVal);
-            }
-            if (raw.exploitable || raw.epss || raw.kev) {
-              isExploitable = true;
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      const titleLower = (f.title || '').toLowerCase();
-      const descLower = (f.description || '').toLowerCase();
-      if (
-        titleLower.includes('exploit') || descLower.includes('exploit') ||
-        titleLower.includes('cve-') || descLower.includes('cve-') ||
-        titleLower.includes('unauthenticated') || descLower.includes('unauthenticated') ||
-        titleLower.includes('remote code execution') || titleLower.includes('rce') ||
-        descLower.includes('remote code execution') || descLower.includes('rce')
-      ) {
-        isExploitable = true;
-      }
-
-      if (!uniqueFindings[groupKey]) {
-        uniqueFindings[groupKey] = {
-          severity,
-          cvss,
-          isExploitable
-        };
-      } else {
-        const curr = uniqueFindings[groupKey];
-        if (cvss !== null) {
-          curr.cvss = Math.max(curr.cvss || 0, cvss);
-        }
-        if (isExploitable) {
-          curr.isExploitable = true;
-        }
-        const sevHierarchy: Record<string, number> = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
-        if (sevHierarchy[severity] > sevHierarchy[curr.severity]) {
-          curr.severity = severity;
-        }
-      }
-    });
-
-    // 3. Calculate Threat Penalty Sum
-    const severityWeights: Record<string, number> = {
-      'CRITICAL': 10.0,
-      'HIGH': 7.0,
-      'MEDIUM': 4.0,
-      'LOW': 1.5
-    };
-
-    let totalPenalty = 0.0;
-    Object.values(uniqueFindings).forEach((v) => {
-      const baseWeight = v.cvss !== null ? v.cvss : (severityWeights[v.severity] || 0);
-      const multiplier = v.isExploitable ? 1.25 : 1.0;
-      const threatWeight = Math.min(10.0, baseWeight * multiplier);
-      totalPenalty += threatWeight;
-    });
-
-    // 4. Compute Final Security Score using Exponential Risk Decay
-    const lambda = 0.035;
-    const exponent = -lambda * (totalPenalty / cProfile);
-    // Prioritize scan.score from backend DB if set, otherwise fallback to frontend calculation
-    const finalScore = scan?.score !== null && scan?.score !== undefined
+    // Prefer the backend-persisted score for historical scans (already validated).
+    // For live/fresh scans the frontend v3 engine computes the canonical score.
+    const finalScore = (scan?.score !== null && scan?.score !== undefined)
       ? scan.score
-      : Math.max(0, Math.min(100, Math.round(100 * Math.exp(exponent))));
-
-    // 5. Determine Overall Security Posture
-    let posture = 'A - Excellent';
-    if (finalScore >= 90) posture = 'A - Excellent';
-    else if (finalScore >= 80) posture = 'B - Good';
-    else if (finalScore >= 70) posture = 'C - Fair';
-    else if (finalScore >= 50) posture = 'D - Weak';
-    else posture = 'F - Critical';
-
-    // 6. Determine Risk Level
-    let risk = 'LOW';
-    if (finalScore >= 90) risk = 'LOW';
-    else if (finalScore >= 70) risk = 'MEDIUM';
-    else if (finalScore >= 50) risk = 'HIGH';
-    else risk = 'CRITICAL';
-
-    // 7. Determine Confidence Level
-    let confidence = 'HIGH';
-    if (nCompleted >= 10) confidence = 'HIGH';
-    else if (nCompleted >= 5) confidence = 'MEDIUM';
-    else confidence = 'LOW';
+      : result.overallScore;
 
     return {
       score: finalScore,
-      posture,
-      riskLevel: risk,
-      confidenceLevel: confidence
+      posture: result.posture,
+      riskLevel: result.riskLevel,
+      confidenceLevel: result.scanConfidence,
+      attackSurface: result.attackSurface,
+      positiveSignalsCount: result.positiveSignals,
+      negativeSignalsCount: result.negativeSignals,
+      topContributors: result.topContributors,
+      moduleScores: result.moduleScores,
+      scoreBreakdown: result.scoreBreakdown,
+      uniqueFindingCount: result.uniqueFindingCount,
+      netPenalty: result.netPenalty,
     };
   }, [findings, scan]);
+
 
   // Group findings count by module
   const moduleFindingsCounts = useMemo(() => {
@@ -679,7 +600,7 @@ export default function ResultsPage() {
           {/* 2. Donut / Stats Charts Dashboard Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Card 1: Risk Overview */}
+            {/* Card 1: Risk Overview — powered by CipherLens Scoring Engine v2 */}
             <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[270px] text-left">
               <p className="text-body-sm font-bold text-text-primary uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Risk Overview</p>
               

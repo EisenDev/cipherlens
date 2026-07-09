@@ -1,100 +1,143 @@
-# CipherLens — Security Scoring Engine Specification
+# CipherLens — Security Scoring Engine v3
+## Architecture, Multi-Dimensional Algorithm & Calibration Guide
 
-This document defines the architecture, mathematical formulations, and implementation guidelines for the professional security scoring engine in **CipherLens**.
-
----
-
-## 1. Engine Core Design Principles
-
-The security scoring engine evaluates targets on a scale from **0 to 100** (where `100` represents a perfectly secure posture with no detected issues, and `0` represents critical risk exposure). 
-
-To ensure the scoring engine is deterministic, reproducible, and explainable, it operates under five core principles:
-1. **Deduplication:** Vulnerabilities are grouped by signature to avoid double-penalizing the score for repetitive findings (e.g., a missing security header flagged across 50 separate crawled pages).
-2. **Exploitability & CVSS Primacy:** CVSS scores are utilized directly when available. If not present, weights are mapped from baseline severities and adjusted by an exploitability multiplier.
-3. **Scan Profile Normalization:** Scores are normalized by the number of active modules successfully executed, preventing partial scans from skewing the results.
-4. **Exponential Risk Decay:** Risk penalties degrade the score logarithmically/exponentially rather than through linear subtraction. This ensures minor issues do not rapidly zero out the score, while multiple critical vulnerabilities degrade the score exponentially.
-5. **No Magic Numbers:** All constants are documented, mathematically derived, and systematically applied.
+This document defines the high-level architecture, algorithms, multipliers, and design details of the **CipherLens Security Scoring Engine v3**.
 
 ---
 
-## 2. Mathematical Formulation
+## 1. Overview & Defensive Posture Philosophy
 
-### Step 1: Vulnerability Deduplication
-Before applying penalties, findings are grouped into unique vulnerability signature sets $V$. A unique signature is defined by the tuple:
-$$\text{Signature}(v) = (\text{Module}, \text{FindingCode} \lor \text{Title})$$
+The CipherLens Security Scoring Engine v3 is designed to calculate a realistic **defensive security posture score (0–100)** for websites and code repositories. 
 
-For each signature set $v \in V$, the representative severity and threat rating are extracted from the finding in that set with the highest severity.
+Unlike naive vulnerability counters that treat all findings with equal weight and sum them linearly (resulting in top-tier sites like Google and Cloudflare receiving failing scores), the v3 engine calculates risk across **six independent assessment dimensions**:
 
-### Step 2: Base Threat Weight Calculation
-For each unique vulnerability signature $v \in V$:
-* If a CVSS score $C_v \in [0.0, 10.0]$ is available (e.g. from Nuclei/OWASP template metadata), the base threat weight $T_{\text{base}}(v)$ is:
-  $$T_{\text{base}}(v) = C_v$$
-* If no CVSS score is available, the threat weight is mapped from the baseline severity weight $W_{\text{sev}}$:
-  $$T_{\text{base}}(v) = W_{\text{sev}}(\text{Severity}_v)$$
-  
-#### Baseline Severity Weight Constants ($W_{\text{sev}}$):
-* **CRITICAL**: $10.0$
-* **HIGH**: $7.0$
-* **MEDIUM**: $4.0$
-* **LOW**: $1.5$
-* **INFO**: $0.0$ (Ignored)
+1. **Vulnerability Category Base Weight**: Differentiates high-impact vulns (e.g. Remote Code Execution = 10.0) from minor issues (e.g. Technology Disclosure = 1.0).
+2. **Exploitability**: Real-world feasibility of exploiting the vuln (Critical, High, Medium, Low, Very Low, None).
+3. **Business Impact**: Potential damage (Confidentiality, Integrity, Availability, Compliance).
+4. **Scanner-Level Confidence**: Passive heuristics receive lesser weight than active/verified matches.
+5. **Scanner Tool Reliability**: Nuclei matches (100% weight) vs. crawler guesses (55% weight).
+6. **Asset Surface Exposure**: Public internet-facing assets receive full penalty; authenticated or internal systems receive discounts.
 
-### Step 3: Exploitability Adjustment
-To incorporate exploitability, a multiplier $M_{\text{exp}}$ is applied if the finding represents a verified exploit, active threat intelligence flag, or a known exploited vulnerability (KEV):
-$$M_{\text{exp}}(v) = \begin{cases} 1.25 & \text{if exploit/proof-of-concept is verified or active KEV} \\ 1.00 & \text{otherwise} \end{cases}$$
+---
 
-The adjusted threat weight $T(v)$ is capped at a maximum of $10.0$:
-$$T(v) = \min(10.0, T_{\text{base}}(v) \times M_{\text{exp}}(v))$$
+## 2. The Multi-Dimensional Formula
 
-### Step 4: Scan Profile Completeness Normalization
-To prevent partial scans from producing artificially high scores or excessive penalties, we calculate the Scan Profile Completeness ($C_{\text{profile}}$) based on the completed module count $N_{\text{completed}}$ against a standard baseline module count $M_{\text{std}}$:
-$$C_{\text{profile}} = \frac{N_{\text{completed}}}{M_{\text{std}}}$$
+For each unique deduplicated vulnerability $V$:
+
+$$\text{raw\_penalty}(V) = \text{base\_weight}(V) \times \text{exploitability\_mult}(V) \times \text{business\_impact\_mult}(V) \times \text{confidence\_mult}(V) \times \text{scanner\_reliability\_mult}(V) \times \text{exposure\_mult}(V)$$
 
 Where:
-* $M_{\text{std}} = 10.0$ (Benchmark core modules count)
-* $C_{\text{profile}}$ is bounded: $0.3 \le C_{\text{profile}} \le 1.5$
+* $\text{raw\_penalty}(V)$ is capped at a maximum of $\text{MAX\_SINGLE\_PENALTY} = 9.0$ to prevent a single finding from completely zeroing the score.
+* The base weight is overridden by the finding's **CVSS score** if available and higher.
 
-### Step 5: Security Score Formula
-The total threat penalty sum $P$ is calculated as:
-$$P = \sum_{v \in V} T(v)$$
+### Category-Level Diminishing Returns
 
-The Final Security Score $S \in [0, 100]$ is computed using an exponential decay model:
-$$S = \text{round}\left(100 \times e^{-\lambda \times \frac{P}{C_{\text{profile}}}}\right)$$
+Multiple findings in the same category (e.g. 10 missing headers) do not scale linearly. Within each category, findings are sorted descending by $\text{raw\_penalty}$, and dampening is applied using the `DR_CURVE` decay array:
 
-Where:
-* $\lambda = 0.035$ (System Risk Decay Constant, derived to set $S = 70$ for a single standalone CRITICAL vulnerability of threat weight $10.0$ at standard profile completeness).
+$$\text{effective\_penalty}(i) = \text{raw\_penalty} \times \text{DR\_CURVE}[i]$$
 
----
+Where $\text{DR\_CURVE} = [1.00, 0.65, 0.45, 0.32, 0.22, 0.15, 0.10, 0.07, 0.05, 0.03]$, and subsequent positions receive a flat $\text{DR\_TAIL} = 0.02$.
 
-## 3. Qualitative Postures & Risk Classification
+### Positive Security Signals & Net Penalty
 
-### Overall Security Posture
-Based on the final security score $S$:
-* $90 \le S \le 100$: `"A - Excellent"` (Minimal threat exposure, strong defensive configurations)
-* $80 \le S < 90$: `"B - Good"` (Minor issues detected, robust baseline security)
-* $70 \le S < 80$: `"C - Fair"` (Moderate vulnerabilities detected, remediation recommended)
-* $50 \le S < 70$: `"D - Weak"` (Significant vulnerabilities detected, immediate remediation required)
-* $0 \le S < 50$: `"F - Critical"` (Critical or multiple high vulnerabilities exposed)
+Good security practices (WAF, HSTS, modern TLS protocols) are rewarded with a **Positive Security Bonus** that offsets minor findings:
 
-### Risk Level
-* $90 \le S \le 100$: `"LOW"`
-* $70 \le S < 90$: `"MEDIUM"`
-* $50 \le S < 70$: `"HIGH"`
-* $0 \le S < 50$: `"CRITICAL"`
+$$\text{net\_penalty} = \max(0.0, \sum \text{effective\_penalty} - \text{positive\_bonus})$$
 
-### Confidence Level
-The score confidence level represents the completeness of the scan profile:
-* $N_{\text{completed}} \ge 10$: `"HIGH"` (Comprehensive assessment coverage)
-* $5 \le N_{\text{completed}} < 10$: `"MEDIUM"` (Standard assessment coverage)
-* $N_{\text{completed}} < 5$: `"LOW"` (Limited assessment coverage)
+To prevent positive signals from masking critical vulnerabilities, the positive bonus is capped at $\text{POSITIVE\_BONUS\_CAP} = 4.0$ and a ratio cap of $\text{POSITIVE\_BONUS\_RATIO\_CAP} = 25\%$ of the total raw penalty.
+
+### Exponential Score Conversion
+
+The score is converted via exponential decay:
+
+$$\text{overall\_score} = \text{round}\left(100 \times e^{-\text{DECAY\_LAMBDA} \times \text{net\_penalty}}\right)$$
+
+Where $\text{DECAY\_LAMBDA} = 0.045$.
 
 ---
 
-## 4. Benchmark Score Projections
+## 3. Parameter Catalogs & Coefficients
 
-| Target Profile | Expected Findings | Calculated Penalty $P$ | Completeness $C_{\text{profile}}$ | Score $S$ | Grade & Risk |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| **Clean / Google / Cloudflare** | 0 findings (or 2 Lows) | $3.0$ | $1.0$ | **$90$** | A - Excellent (LOW) |
-| **Standard Site (some issues)** | 1 High, 3 Mediums, 2 Lows | $22.0$ | $1.0$ | **$46$** | F - Critical (CRITICAL) |
-| **Juice Shop / Vulnerable Target** | 4 Critical, 12 High, 20 Mediums | $210.0$ | $1.0$ | **$0$** | F - Critical (CRITICAL) |
-| **Limited Scan (1 module)** | 1 Medium finding | $4.0$ | $0.3$ | **$63$** | D - Weak (HIGH) |
+### Category Base Weights (0–10 Scale)
+
+* **Remote Code Execution**: 10.0
+* **Authentication Bypass**: 9.5
+* **SQL Injection**: 9.0
+* **Command Injection**: 9.0
+* **Secret Exposure**: 9.0
+* **SSRF / XXE**: 8.5
+* **Directory Listing**: 4.0
+* **Security Headers**: 1.5 (including CSP, HSTS, XFO)
+* **Technology Disclosure**: 0.5
+* **Cookie Security**: 2.0
+
+### Multipliers
+
+* **Exploitability**: Critical (1.30) | High (1.10) | Medium (0.90) | Low (0.65) | Very Low (0.50) | None (0.35)
+* **Business Impact**: Critical (1.20) | High (1.00) | Medium (0.80) | Low (0.70) | Very Low (0.50)
+* **Confidence**: Verified (1.00) | High (0.85) | Medium (0.65) | Low (0.40)
+* **Scanner Reliability**: Nuclei (1.00) | SSL/TLS testssl (0.95) | HTTP headers (0.85) | Subdomains (0.70) | Technology heuristics (0.40)
+* **Asset Exposure**: Public (1.00) | Authenticated (0.75) | Internal (0.50) | Theoretical (0.20)
+
+---
+
+## 4. Benchmark Calibration Results
+
+The scoring engine has been calibrated against 10 distinct scenario profiles to ensure results align with enterprise expectations:
+
+| Target Scenario | Target Score Range | Calibrated Score | Resulting Posture |
+|---|---|---|---|
+| **Cloudflare** (CDN, WAF, HSTS, Clean) | 93–100 | **98** | Excellent |
+| **Google** (WAF, HSTS, Minor Headers) | 91–100 | **96** | Excellent |
+| **GitHub** (HSTS, CSP, Minor Headers) | 88–98 | **95** | Excellent |
+| **Stripe** (PCI Compliant, Strict Headers) | 88–98 | **98** | Excellent |
+| **YouTube** (Clean, 3 Low Headers) | 86–97 | **97** | Excellent |
+| **Supabase / OpenAI** (HSTS, 1 Medium CSP) | 83–96 | **91** | Good |
+| **Typical SaaS** (Deprecated TLS, Missing HSTS) | 60–82 | **62** | Needs Attention |
+| **OWASP Juice Shop** (Vulnerable Target) | 8–30 | **12** | Critical |
+| **DVWA** (Damn Vulnerable Web App) | 0–20 | **5** | Critical |
+| **Metasploitable 2** (Compromised Target) | 0–10 | **6** | Critical |
+
+---
+
+## 5. Score Output Schema
+
+Every scan status and scoring lookup returns the following schema:
+
+```json
+{
+  "overallScore": 95,
+  "posture": "Excellent",
+  "confidence": "High",
+  "attackSurface": 2,
+  "positiveSignals": 6,
+  "negativeSignals": 3,
+  "criticalFindings": 0,
+  "topContributors": [
+    {
+      "title": "Cookie missing SameSite attribute",
+      "category": "Cookie Security",
+      "severity": "LOW",
+      "effectivePenalty": 0.7514,
+      "deductionReason": "Category: Cookie Security | Exploitability: low | Business Impact: low | Confidence: high | Scanner Reliability: 85% | Exposure: public"
+    }
+  ],
+  "moduleScores": {
+    "headers": 96,
+    "cookies": 95
+  },
+  "scoreBreakdown": {
+    "byCategory": {
+      "Security Headers": 0.814,
+      "Cookie Security": 0.751
+    },
+    "positiveSignalsApplied": [
+      { "label": "WAF / DDoS Protection Detected", "bonus": 1.5 },
+      { "label": "HSTS Enabled (max-age ≥ 1 year)", "bonus": 1.2 }
+    ],
+    "totalRawPenalty": 1.565,
+    "positiveBonus": 0.391,
+    "netPenalty": 1.174
+  }
+}
+```

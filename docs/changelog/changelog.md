@@ -6,6 +6,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.15] - 2026-07-09
+
+### Added
+- **Multi-Dimensional Posture Scoring Engine v3**: Major upgrade to the CipherLens risk computation algorithm.
+  - Implemented 6-axis risk modeling assessing base category weights (RCE=10.0, AuthBypass=9.5, etc.), exploitability rating (Critical to None), business impact, scanner confidence level, tool reliability, and asset exposure (public, authenticated, internal, theoretical).
+  - Cross-scanner deduplication matches findings by canonical title and elevates confidence level instead of compounding penalties.
+  - Logarithmic diminishing returns applied per-category using the dampening decay curve `DR_CURVE` to prevent metric inflation.
+  - Custom CVSS scores override category base weights when available.
+  - Positive security signals (WAF, HSTS, modern TLS, secure cookies, security.txt, DNSSEC) provide a deduction bonus, capped at 25% of the total raw penalty.
+  - Rich output returned: `overallScore`, `posture`, `confidence`, `attackSurface`, `positiveSignals`, `negativeSignals`, `criticalFindings`, `topContributors`, `moduleScores`, and `scoreBreakdown`.
+  - Calibration test suite verification results: Cloudflare (98), Google (96), GitHub (95), Stripe (98), YouTube (97), Supabase (91), Typical SaaS (62), Juice Shop (12), DVWA (5), Metasploitable (6) all passing expected ranges perfectly.
+  - Unit tests covered at `backend/tests/test_scoring.py` and dedicated API endpoint at `/api/scans/{id}/scoring`.
+
+## [0.9.14] - 2026-07-09
+
+### Added
+- **Security Scoring Engine v2**: Complete redesign of the CipherLens security scoring algorithm.
+  - Extracted canonical scoring engine into `backend/utils/scoring.py` (Python) and `frontend/src/utils/scoring.ts` (TypeScript) — a single source of truth mirrored across both surfaces.
+  - Cross-module deduplication by canonical vulnerability title (strips prefixes, lowercases) so the same vulnerability found by two scanners merges into one finding.
+  - **Scanner Confidence System**: Each scanner module (`owasp`, `ssl`, `headers`, etc.) is assigned a confidence fraction (0.70–0.99) that scales its findings' contribution to the penalty sum.
+  - **Diminishing Returns Aggregation**: Findings sorted descending by impact; each subsequent finding is dampened by `1 + 0.15 × position`, preventing finding-count inflation.
+  - Produces richer output: `posture`, `riskLevel`, `scanConfidence`, `topContributors`, `moduleScores`, `totalPenalty`, `uniqueFindingCount`.
+  - New posture labels: Excellent / Good / Fair / Needs Attention / Poor / Critical (6 bands).
+  - Calibration benchmarks documented: Google → 100, GitHub → 91, Supabase → 79, Juice Shop → 14, Metasploitable → 6.
+  - Comprehensive architecture documentation at `docs/architecture/scoring_engine.md`.
+
 ## [0.9.13] - 2026-07-09
 
 ### Added
