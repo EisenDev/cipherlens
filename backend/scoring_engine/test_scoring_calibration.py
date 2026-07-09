@@ -3,13 +3,12 @@ CipherLens — Scoring Engine v3 Calibration Suite
 =================================================
 
 Validates the scoring engine against known calibration targets.
-Run: python3 -m pytest backend/utils/test_scoring_calibration.py -v
-  or: python3 backend/utils/test_scoring_calibration.py
+Run: python3 backend/scoring_engine/test_scoring_calibration.py
 """
 import sys
 sys.path.insert(0, 'backend')
 
-from utils.scoring import calculate_score, ScoringResult
+from scoring_engine.scoring import calculate_score, ScoringResult
 
 # ─── CALIBRATION SCENARIOS ────────────────────────────────────────────────────
 # Each scenario represents a realistic scan profile for a known target type.

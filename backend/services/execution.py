@@ -265,13 +265,11 @@ class ScanExecutionService:
             message=message
         )
         self.db.add(log)
-        self.db.commit()
 
     def _calculate_scan_score(self, scan_id: str) -> int:
         """
-        Delegates to the canonical CipherLens Security Scoring Engine v2.
-        See backend/utils/scoring.py for the full algorithm documentation.
+        Delegates to the canonical CipherLens Security Scoring Engine v3.
         """
-        from utils.scoring import score_from_db
+        from scoring_engine.scoring import score_from_db
         result = score_from_db(self.db, scan_id)
-        return result.score
+        return result.overall_score

@@ -750,7 +750,7 @@ def get_scan_status(
                 current_tool = scan.currentModule
 
     # Run the scoring engine v3
-    from utils.scoring import score_from_db
+    from scoring_engine.scoring import score_from_db
     try:
         scoring_res = score_from_db(db, id)
         overall_score = scoring_res.overall_score
@@ -911,7 +911,7 @@ def get_scan_scoring(
     if not scan:
         raise HTTPException(status_code=404, detail="Scan record not found.")
 
-    from utils.scoring import score_from_db
+    from scoring_engine.scoring import score_from_db
     try:
         res = score_from_db(db, id)
         # Convert module_scores from dict of details to simple dict of scores as requested
