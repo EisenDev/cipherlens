@@ -19,7 +19,6 @@ import {
   ArrowUpDown,
   BookOpen,
   ClipboardList,
-  SlidersHorizontal,
   ChevronLeft,
   ChevronsLeft,
   ChevronsRight,
@@ -489,6 +488,39 @@ export default function FindingsPage() {
     return { dateStr, timeStr };
   };
 
+  const getCVSSStyle = (cvssVal: string) => {
+    if (!cvssVal || cvssVal === '--' || cvssVal === 'N/A') return 'bg-slate-50 text-slate-450 border-slate-200';
+    const val = parseFloat(cvssVal);
+    if (isNaN(val)) return 'bg-slate-50 text-slate-450 border-slate-200';
+    if (val >= 9.0) return 'bg-red-50 text-red-700 border-red-200';
+    if (val >= 7.0) return 'bg-orange-50 text-orange-700 border-orange-200';
+    if (val >= 4.0) return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-blue-50 text-blue-700 border-blue-200';
+  };
+
+  const getInitials = (name: string) => {
+    if (!name || name === 'Unassigned') return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
+  };
+
+  const getAvatarBg = (name: string) => {
+    if (!name || name === 'Unassigned') return 'bg-slate-100 text-slate-500';
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      'bg-indigo-50 text-indigo-700 border-indigo-200',
+      'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'bg-amber-50 text-amber-700 border-amber-200',
+      'bg-blue-50 text-blue-700 border-blue-200',
+      'bg-purple-50 text-purple-700 border-purple-200',
+      'bg-pink-50 text-pink-700 border-pink-200'
+    ];
+    return colors[hash % colors.length];
+  };
+
   // Paginate findings
   const sortedFindings = getSortedFindings();
   const totalFindings = sortedFindings.length;
@@ -693,79 +725,88 @@ export default function FindingsPage() {
 
         </div>
 
-        {/* Split Layout: Advanced Filters Card Width and Height constrained */}
-        <div className="grid grid-cols-12 gap-5 items-start">
+        {/* Full Width Table Layout */}
+        <div className="w-full flex flex-col gap-4">
           
-          {/* Left Advanced Filters Panel (col-span-2) -> Narrower panel */}
-          <div className="col-span-12 lg:col-span-2 flex flex-col gap-4">
-            <div className="bg-white rounded-2xl border border-border-warm p-4 shadow-sm text-left flex flex-col gap-4 text-xs font-semibold">
-              <div className="flex justify-between items-center border-b border-border-warm pb-2">
-                <span className="font-extrabold text-text-primary text-body-sm flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-text-muted" /> Filters
-                </span>
-                <button 
-                  onClick={handleResetFilters}
-                  className="text-[10px] font-bold text-text-muted hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider"
+          {/* Table Header Action Bar (Above table) */}
+          <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 bg-white border border-border-warm rounded-2xl p-3 shadow-sm text-xs font-semibold text-text-primary">
+            
+            {/* Search findings box */}
+            <div className="flex-1 min-w-[220px] max-w-sm">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                <input 
+                  type="text"
+                  placeholder="Search findings..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
+                />
+              </div>
+            </div>
+            
+            {/* Inline Filter Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              
+              {/* Severity Dropdown Chip */}
+              <div className="relative inline-block">
+                <select
+                  value={selectedSeverities.join(',')}
+                  onChange={(e) => setSelectedSeverities(e.target.value ? [e.target.value] : [])}
+                  className="appearance-none bg-white hover:bg-bg-secondary border border-border-warm rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-text-primary cursor-pointer outline-none transition-colors shadow-sm text-left"
                 >
-                  Reset
-                </button>
+                  <option value="">Severity</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                  <option value="INFO">Informational</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               </div>
 
-              {/* Search filter input */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Search</label>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-                  <input 
-                    type="text"
-                    placeholder="Search findings..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
-                  />
-                </div>
+              {/* Scanner Dropdown Chip */}
+              <div className="relative inline-block">
+                <select
+                  value={selectedScanner}
+                  onChange={(e) => setSelectedScanner(e.target.value)}
+                  className="appearance-none bg-white hover:bg-bg-secondary border border-border-warm rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-text-primary cursor-pointer outline-none transition-colors shadow-sm text-left"
+                >
+                  <option value="">Scanner</option>
+                  <option value="headers">Security Headers</option>
+                  <option value="ssl">SSL Audit (TestSSL)</option>
+                  <option value="ports">Port Scanner</option>
+                  <option value="subdomains">Subdomain Enum</option>
+                  <option value="technology">Tech Fingerprint</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               </div>
 
-              {/* Severity Checkbox list with counts */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1.5">Severity</label>
-                <div className="flex flex-col gap-1">
-                  {[
-                    { key: 'CRITICAL', label: 'Critical', color: 'bg-red-500', count: stats.criticalActive },
-                    { key: 'HIGH', label: 'High', color: 'bg-orange-500', count: stats.highActive },
-                    { key: 'MEDIUM', label: 'Medium', color: 'bg-amber-500', count: stats.mediumActive },
-                    { key: 'LOW', label: 'Low', color: 'bg-blue-500', count: stats.lowActive },
-                    { key: 'INFO', label: 'Informational', color: 'bg-slate-400', count: stats.infoActive }
-                  ].map(item => (
-                    <label key={item.key} className="flex items-center justify-between text-xs text-text-primary font-semibold select-none cursor-pointer hover:bg-bg-secondary/40 py-0.5 rounded px-1">
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="checkbox"
-                          checked={selectedSeverities.includes(item.key)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedSeverities([...selectedSeverities, item.key]);
-                            else setSelectedSeverities(selectedSeverities.filter(s => s !== item.key));
-                          }}
-                          className="rounded border-border-warm text-slate-900 focus:ring-slate-500 w-3.5 h-3.5"
-                        />
-                        <span className={`w-2 h-2 rounded-full ${item.color}`} />
-                        <span>{item.label}</span>
-                      </div>
-                      <span className="text-[10px] text-text-muted bg-slate-100 px-1.5 py-0.5 rounded-full font-mono">{item.count}</span>
-                    </label>
-                  ))}
-                </div>
+              {/* Category Dropdown Chip */}
+              <div className="relative inline-block">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="appearance-none bg-white hover:bg-bg-secondary border border-border-warm rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-text-primary cursor-pointer outline-none transition-colors shadow-sm text-left"
+                >
+                  <option value="">Category</option>
+                  <option value="Security Headers">Security Headers</option>
+                  <option value="Protocol">Protocol / TLS</option>
+                  <option value="Subdomains">Subdomains</option>
+                  <option value="Cookies">Cookies</option>
+                  <option value="Network Exposure">Network Exposure</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               </div>
 
-              {/* Status Select dropdown */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Status</label>
-                <select 
+              {/* Status Dropdown Chip */}
+              <div className="relative inline-block">
+                <select
                   value={selectedStatuses.join(',')}
                   onChange={(e) => setSelectedStatuses(e.target.value ? [e.target.value] : [])}
-                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
+                  className="appearance-none bg-white hover:bg-bg-secondary border border-border-warm rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-text-primary cursor-pointer outline-none transition-colors shadow-sm text-left"
                 >
-                  <option value="">Select status</option>
+                  <option value="">Status</option>
                   <option value="Open">Open</option>
                   <option value="Investigating">Investigating</option>
                   <option value="In Progress">In Progress</option>
@@ -775,385 +816,450 @@ export default function FindingsPage() {
                   <option value="Fixed">Fixed</option>
                   <option value="False Positive">False Positive</option>
                 </select>
+                <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               </div>
 
-              {/* Category dropdown */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Category</label>
-                <select 
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
-                >
-                  <option value="">Select category</option>
-                  <option value="Security Headers">Security Headers</option>
-                  <option value="Protocol">Protocol / TLS</option>
-                  <option value="Subdomains">Subdomains</option>
-                  <option value="Cookies">Cookies</option>
-                  <option value="Network Exposure">Network Exposure</option>
-                </select>
-              </div>
-
-              {/* Scanner dropdown */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Scanner</label>
-                <select 
-                  value={selectedScanner}
-                  onChange={(e) => setSelectedScanner(e.target.value)}
-                  className="w-full bg-bg-secondary border border-border-warm rounded-xl px-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
-                >
-                  <option value="">Select scanner</option>
-                  <option value="headers">Security Headers (Nuclei)</option>
-                  <option value="ssl">SSL Audit (TestSSL)</option>
-                  <option value="tls">TLS check</option>
-                  <option value="ports">Port Scanner</option>
-                  <option value="subdomains">Subfinder</option>
-                  <option value="technology">Httpx Tech</option>
-                </select>
-              </div>
-
-              {/* Asset URL search box */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Asset</label>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-                  <input 
-                    type="text"
-                    placeholder="Search assets..."
-                    value={selectedAssetId}
-                    onChange={(e) => setSelectedAssetId(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* Discovered dates */}
-              <div>
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1">Discovered</label>
-                <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  <input 
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-lg px-1.5 py-1 text-center outline-none"
-                  />
-                  <input 
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full bg-bg-secondary border border-border-warm rounded-lg px-1.5 py-1 text-center outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Collapsible More Filters */}
-              <div className="border-t border-border-warm pt-2">
-                <button 
-                  onClick={() => setShowMoreFilters(!showMoreFilters)}
-                  className="w-full flex justify-between items-center text-[10px] text-text-muted font-bold uppercase tracking-wider hover:text-slate-900 transition-colors cursor-pointer"
-                >
-                  <span>More Filters</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} />
-                </button>
-                {showMoreFilters && (
-                  <div className="flex flex-col gap-3 mt-2.5">
-                    <div>
-                      <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">CVSS Range</label>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <input 
-                          type="number"
-                          step="0.1"
-                          placeholder="Min"
-                          value={cvssMin}
-                          onChange={(e) => setCvssMin(e.target.value)}
-                          className="w-full bg-bg-secondary border border-border-warm rounded-lg py-1 text-center text-xs"
-                        />
-                        <input 
-                          type="number"
-                          step="0.1"
-                          placeholder="Max"
-                          value={cvssMax}
-                          onChange={(e) => setCvssMax(e.target.value)}
-                          className="w-full bg-bg-secondary border border-border-warm rounded-lg py-1 text-center text-xs"
-                        />
+              {/* Filters toggle chip with blue badge */}
+              {(() => {
+                const getActiveFiltersCount = () => {
+                  let count = 0;
+                  if (selectedSeverities.length > 0) count++;
+                  if (selectedStatuses.length > 0) count++;
+                  if (selectedAssetId) count++;
+                  if (selectedCategory) count++;
+                  if (selectedScanner) count++;
+                  if (selectedAssignedTo) count++;
+                  if (cvssMin || cvssMax) count++;
+                  if (dateFrom || dateTo) count++;
+                  return count;
+                };
+                const activeFiltersCount = getActiveFiltersCount();
+                return (
+                  <div className="relative inline-block">
+                    <button 
+                      onClick={() => setShowMoreFilters(!showMoreFilters)}
+                      className={`px-3 py-1.5 border border-border-warm rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        showMoreFilters || activeFiltersCount > 0 ? 'bg-bg-secondary text-slate-900' : 'bg-white text-text-primary hover:bg-bg-secondary'
+                      }`}
+                    >
+                      <span>Filters</span>
+                      {activeFiltersCount > 0 && (
+                        <span className="bg-blue-600 text-white rounded-full px-1.5 py-0.5 text-[9px] font-extrabold font-mono">
+                          {activeFiltersCount}
+                        </span>
+                      )}
+                      <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
+                    </button>
+                    {showMoreFilters && (
+                      <div className="absolute right-0 mt-2 w-64 bg-white border border-border-warm rounded-2xl shadow-lg p-4 z-50 text-left flex flex-col gap-3 font-semibold text-xs text-text-primary">
+                        <div>
+                          <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Asset URL Search</label>
+                          <input 
+                            type="text"
+                            placeholder="e.g. youtube.com"
+                            value={selectedAssetId}
+                            onChange={(e) => setSelectedAssetId(e.target.value)}
+                            className="w-full bg-bg-secondary border border-border-warm rounded-lg px-2.5 py-1 text-xs outline-none focus:bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">CVSS Range</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <input 
+                              type="number"
+                              step="0.1"
+                              placeholder="Min"
+                              value={cvssMin}
+                              onChange={(e) => setCvssMin(e.target.value)}
+                              className="w-full bg-bg-secondary border border-border-warm rounded-lg py-1 text-center text-xs"
+                            />
+                            <input 
+                              type="number"
+                              step="0.1"
+                              placeholder="Max"
+                              value={cvssMax}
+                              onChange={(e) => setCvssMax(e.target.value)}
+                              className="w-full bg-bg-secondary border border-border-warm rounded-lg py-1 text-center text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Discovered Between</label>
+                          <div className="grid grid-cols-2 gap-1 text-[10px]">
+                            <input 
+                              type="date"
+                              value={dateFrom}
+                              onChange={(e) => setDateFrom(e.target.value)}
+                              className="w-full bg-bg-secondary border border-border-warm rounded-lg px-1 py-0.5 text-center"
+                            />
+                            <input 
+                              type="date"
+                              value={dateTo}
+                              onChange={(e) => setDateTo(e.target.value)}
+                              className="w-full bg-bg-secondary border border-border-warm rounded-lg px-1 py-0.5 text-center"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Assigned To</label>
+                          <select 
+                            value={selectedAssignedTo}
+                            onChange={(e) => setSelectedAssignedTo(e.target.value)}
+                            className="w-full bg-bg-secondary border border-border-warm rounded-lg px-2 py-1 text-xs outline-none"
+                          >
+                            <option value="">All users</option>
+                            <option value="Arjay Escabas">Arjay Escabas</option>
+                            <option value="Unassigned">Unassigned</option>
+                          </select>
+                        </div>
+                        <button 
+                          onClick={handleResetFilters}
+                          className="w-full mt-1.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-center font-bold text-xs"
+                        >
+                          Reset All Filters
+                        </button>
                       </div>
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Assigned To</label>
-                      <select 
-                        value={selectedAssignedTo}
-                        onChange={(e) => setSelectedAssignedTo(e.target.value)}
-                        className="w-full bg-bg-secondary border border-border-warm rounded-lg px-2 py-1 text-xs outline-none"
-                      >
-                        <option value="">All users</option>
-                        <option value="Arjay Escabas">Arjay Escabas</option>
-                        <option value="Unassigned">Unassigned</option>
-                      </select>
-                    </div>
+                    )}
                   </div>
-                )}
+                );
+              })()}
+
+              {/* Columns button */}
+              <button className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer">
+                Columns <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Sort order Dropdown Chip */}
+              <div className="relative inline-block">
+                <select
+                  value={sortField}
+                  onChange={(e) => {
+                    setSortField(e.target.value as any);
+                    setSortOrder('desc');
+                  }}
+                  className="appearance-none bg-white hover:bg-bg-secondary border border-border-warm rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-text-primary cursor-pointer outline-none transition-colors shadow-sm text-left"
+                >
+                  <option value="lastSeen">Newest First</option>
+                  <option value="severity">By Severity</option>
+                  <option value="title">By Title</option>
+                  <option value="cvss">By CVSS Score</option>
+                  <option value="occurrences">By Occurrences</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               </div>
 
             </div>
           </div>
 
-          {/* Right Main Content Panel (col-span-10) */}
-          <div className="col-span-12 lg:col-span-10 flex flex-col gap-4">
-            
-            {/* Table Header Action Bar (Above table) */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white border border-border-warm rounded-2xl p-3 shadow-sm text-xs font-semibold text-text-primary">
-              <div className="flex items-center gap-3">
-                {selectedFindingKeys.length > 0 && (
-                  <>
-                    <span className="text-slate-800 font-bold">{selectedFindingKeys.length} selected</span>
-                    <button 
-                      onClick={() => setSelectedFindingKeys([])}
-                      className="text-accent hover:underline font-bold"
-                    >
-                      Clear selection
-                    </button>
-                  </>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-                  <input 
-                    type="text"
-                    placeholder="Search in table..."
-                    value={tableSearch}
-                    onChange={(e) => setTableSearch(e.target.value)}
-                    className="bg-bg-secondary border border-border-warm rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-text-primary outline-none focus:bg-white w-44"
-                  />
-                </div>
-
-                <button className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer">
-                  Columns <ChevronDown className="w-3.5 h-3.5" />
-                </button>
+          {/* Floating actions banner if items are selected */}
+          {selectedFindingKeys.length > 0 && (
+            <div className="flex justify-between items-center bg-slate-900 text-white rounded-2xl px-5 py-3 text-xs font-bold shadow-lg animate-fade-in text-left">
+              <span className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                {selectedFindingKeys.length} findings selected for bulk action
+              </span>
+              <div className="flex items-center gap-4">
                 <button 
-                  onClick={() => handleSort('lastSeen')}
-                  className="px-3 py-1.5 bg-white border border-border-warm rounded-xl text-xs hover:bg-bg-secondary transition-colors flex items-center gap-1 cursor-pointer"
+                  onClick={() => handleBulkAction('validate')}
+                  className="text-emerald-400 hover:text-emerald-300 font-extrabold cursor-pointer"
                 >
-                  Newest First <ChevronDown className="w-3.5 h-3.5" />
+                  Re-run Validation
+                </button>
+                <span className="text-slate-700">|</span>
+                <button 
+                  onClick={() => handleBulkAction('status', 'Resolved')}
+                  className="text-slate-300 hover:text-white cursor-pointer"
+                >
+                  Set as Fixed
+                </button>
+                <span className="text-slate-700">|</span>
+                <button 
+                  onClick={() => setSelectedFindingKeys([])}
+                  className="text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Clear Selection
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Findings List Card Container - Constrained scrollable height */}
-            <div className="bg-white rounded-2xl border border-border-warm shadow-sm overflow-hidden flex flex-col">
-              
-              <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
-                {loading ? (
-                  <div className="py-20 flex flex-col items-center justify-center gap-3">
-                    <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
-                    <p className="text-text-muted text-xs font-bold animate-pulse">Loading findings workspace...</p>
-                  </div>
-                ) : error ? (
-                  <div className="py-16 text-center">
-                    <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-                    <p className="text-red-700 font-extrabold text-xs">{error}</p>
-                  </div>
-                ) : paginatedFindings.length === 0 ? (
-                  <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-                    <ShieldCheck className="w-12 h-12 text-emerald-500" />
-                    <h3 className="font-extrabold text-text-primary text-body-lg">Clean Workspace!</h3>
-                    <p className="text-text-muted text-xs max-w-md">No vulnerability findings match your filters. Your target environment is secure.</p>
-                  </div>
-                ) : (
-                  <table className="w-full border-collapse text-left table-fixed">
-                    <thead>
-                      <tr className="bg-bg-secondary border-b border-border-warm text-[10px] font-extrabold uppercase tracking-wider text-text-muted select-none">
-                        <th className="px-4 py-3.5 w-12 text-center">
-                          <input 
-                            type="checkbox"
-                            checked={paginatedFindings.length > 0 && paginatedFindings.every(f => selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id))}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
-                          />
-                        </th>
-                        <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('severity')}>
-                          <span className="flex items-center gap-0.5">Severity <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                        </th>
-                        <th className="px-4 py-3.5 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('title')}>
-                          <span className="flex items-center gap-0.5">Finding <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                        </th>
-                        <th className="px-4 py-3.5 w-44">Asset</th>
-                        <th className="px-4 py-3.5 w-36">Scanner</th>
-                        <th className="px-4 py-3.5 w-32">Category</th>
-                        <th className="px-4 py-3.5 w-28 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('lastSeen')}>
-                          <span className="flex items-center gap-0.5">Discovered <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
-                        </th>
-                        <th className="px-4 py-3.5 w-24">Status</th>
-                        <th className="px-4 py-3.5 w-12 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-warm text-xs font-semibold text-text-primary">
-                      {paginatedFindings.map((f) => {
-                        const isChecked = selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id);
-                        const { dateStr, timeStr } = formatTableDate(f.lastSeen);
-                        return (
-                          <tr 
-                            key={`${f.findingCode}-${f.asset.id}`} 
-                            className={`hover:bg-bg-secondary/40 transition-colors group cursor-pointer ${isChecked ? 'bg-bg-secondary/20' : ''}`}
-                            onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
-                          >
-                            <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                              <input 
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => handleSelectOne(e.target.checked, f.findingCode, f.asset.id)}
-                                className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
-                              />
-                            </td>
-                            
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase select-none ${getSeverityStyle(f.severity)}`}>
-                                {getSeverityIcon(f.severity)} {f.severity === 'INFO' ? 'Info' : f.severity.charAt(0) + f.severity.slice(1).toLowerCase()}
-                              </span>
-                            </td>
+          {/* Findings List Card Container - Constrained scrollable height */}
+          <div className="bg-white rounded-2xl border border-border-warm shadow-sm overflow-hidden flex flex-col">
+            
+            <div className="overflow-x-auto max-h-[580px] overflow-y-auto">
+              {loading ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3">
+                  <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+                  <p className="text-text-muted text-xs font-bold animate-pulse">Loading findings workspace...</p>
+                </div>
+              ) : error ? (
+                <div className="py-16 text-center">
+                  <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+                  <p className="text-red-700 font-extrabold text-xs">{error}</p>
+                </div>
+              ) : paginatedFindings.length === 0 ? (
+                <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
+                  <ShieldCheck className="w-12 h-12 text-emerald-500" />
+                  <h3 className="font-extrabold text-text-primary text-body-lg">Clean Workspace!</h3>
+                  <p className="text-text-muted text-xs max-w-md">No vulnerability findings match your filters. Your target environment is secure.</p>
+                </div>
+              ) : (
+                <table className="w-full border-collapse text-left table-fixed min-w-[1280px]">
+                  <thead>
+                    <tr className="bg-bg-secondary border-b border-border-warm text-[10px] font-extrabold uppercase tracking-wider text-text-muted select-none">
+                      <th className="px-4 py-3.5 w-12 text-center">
+                        <input 
+                          type="checkbox"
+                          checked={paginatedFindings.length > 0 && paginatedFindings.every(f => selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id))}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
+                        />
+                      </th>
+                      <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('severity')}>
+                        <span className="flex items-center gap-0.5">Severity <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                      </th>
+                      <th className="px-4 py-3.5 w-80 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('title')}>
+                        <span className="flex items-center gap-0.5">Finding <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                      </th>
+                      <th className="px-4 py-3.5 w-44">Asset</th>
+                      <th className="px-4 py-3.5 w-40">Scanner</th>
+                      <th className="px-4 py-3.5 w-36">Category</th>
+                      <th className="px-4 py-3.5 w-20 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('cvss')}>
+                        <span className="flex items-center gap-0.5">CVSS <span className="text-[10px] text-text-muted select-none">ⓘ</span></span>
+                      </th>
+                      <th className="px-4 py-3.5 w-28">Status</th>
+                      <th className="px-4 py-3.5 w-28">First Seen</th>
+                      <th className="px-4 py-3.5 w-28 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('lastSeen')}>
+                        <span className="flex items-center gap-0.5">Last Seen <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                      </th>
+                      <th className="px-4 py-3.5 w-24 cursor-pointer hover:text-slate-950 transition-colors" onClick={() => handleSort('occurrences')}>
+                        <span className="flex items-center gap-0.5">Occurrences <ArrowUpDown className="w-3 h-3 text-text-muted" /></span>
+                      </th>
+                      <th className="px-4 py-3.5 w-40">Assigned To</th>
+                      <th className="px-4 py-3.5 w-14 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-warm text-xs font-semibold text-text-primary">
+                    {paginatedFindings.map((f) => {
+                      const isChecked = selectedFindingKeys.some(k => k.findingCode === f.findingCode && k.assetId === f.asset.id);
+                      const firstDate = formatTableDate(f.firstSeen);
+                      const lastDate = formatTableDate(f.lastSeen);
+                      return (
+                        <tr 
+                          key={`${f.findingCode}-${f.asset.id}`} 
+                          className={`hover:bg-bg-secondary/40 transition-colors group cursor-pointer ${isChecked ? 'bg-bg-secondary/20' : ''}`}
+                          onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
+                        >
+                          <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => handleSelectOne(e.target.checked, f.findingCode, f.asset.id)}
+                              className="rounded border-border-warm text-slate-900 focus:ring-slate-500 cursor-pointer"
+                            />
+                          </td>
+                          
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase select-none ${getSeverityStyle(f.severity)}`}>
+                              {getSeverityIcon(f.severity)} {f.severity === 'INFO' ? 'Info' : f.severity.charAt(0) + f.severity.slice(1).toLowerCase()}
+                            </span>
+                          </td>
 
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col pr-2">
-                                <p className="font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors text-xs leading-snug">{f.title}</p>
-                                <p className="text-[10px] text-text-muted font-normal leading-normal mt-0.5 line-clamp-2 max-h-8 overflow-hidden">{f.description}</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {f.cve && f.cve !== 'N/A' && (
-                                    <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cve}</span>
-                                  )}
-                                  {f.cwe && f.cwe !== 'N/A' && (
-                                    <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cwe}</span>
-                                  )}
-                                </div>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col pr-2">
+                              <p className="font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors text-xs leading-snug">{f.title}</p>
+                              <p className="text-[10px] text-text-muted font-normal leading-normal mt-0.5 line-clamp-2 max-h-8 overflow-hidden">{f.description}</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {f.cve && f.cve !== 'N/A' && (
+                                  <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cve}</span>
+                                )}
+                                {f.cwe && f.cwe !== 'N/A' && (
+                                  <span className="inline-block px-1 bg-slate-100 text-slate-600 rounded text-[9px] font-bold tracking-wider">{f.cwe}</span>
+                                )}
                               </div>
-                            </td>
+                            </div>
+                          </td>
 
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="font-bold text-slate-800 truncate">{f.asset.name}</p>
-                                <p className="text-[10px] text-text-muted font-normal font-mono truncate">{getMockIP(f.asset.url)}</p>
-                              </div>
-                            </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-bold text-slate-800 truncate">{f.asset.name}</p>
+                              <p className="text-[10px] text-text-muted font-normal font-mono truncate">{getMockIP(f.asset.url)}</p>
+                            </div>
+                          </td>
 
-                            <td className="px-4 py-3">
-                              <p className="font-semibold text-slate-700 truncate text-xs">
-                                {getScannerDisplayName(f.scanner, f.category, f.module)}
-                              </p>
-                            </td>
+                          <td className="px-4 py-3 text-slate-700 truncate font-semibold">
+                            {getScannerDisplayName(f.scanner, f.category, f.module)}
+                          </td>
 
-                            <td className="px-4 py-3 text-slate-600 font-semibold truncate">
-                              {f.category || 'Vulnerability'}
-                            </td>
+                          <td className="px-4 py-3 text-slate-650 font-semibold truncate">
+                            {f.category || 'Vulnerability'}
+                          </td>
 
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="font-bold text-slate-700">{dateStr}</p>
-                                <p className="text-[10px] text-text-muted font-normal mt-0.5">{timeStr}</p>
-                              </div>
-                            </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold border select-none w-10 ${getCVSSStyle(f.cvss)}`}>
+                              {f.cvss}
+                            </span>
+                          </td>
 
-                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                              <div className="relative inline-block w-full">
-                                <select 
-                                  value={f.status}
-                                  onChange={(e) => handleStatusChange(f.findingCode, f.asset.id, e.target.value)}
-                                  className={`appearance-none w-full border font-bold text-[10px] rounded-lg px-2 py-1 pr-6 cursor-pointer outline-none transition-all shadow-sm ${getStatusBadgeStyle(f.status)}`}
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="relative inline-block w-full">
+                              <select 
+                                value={f.status}
+                                onChange={(e) => handleStatusChange(f.findingCode, f.asset.id, e.target.value)}
+                                className={`appearance-none w-full border font-bold text-[10px] rounded-lg px-2 py-1 pr-6 cursor-pointer outline-none transition-all shadow-sm ${getStatusBadgeStyle(f.status)}`}
+                              >
+                                <option value="Open">Open</option>
+                                <option value="Investigating">Investigating</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Resolved">Resolved</option>
+                                <option value="Mitigated">Mitigated</option>
+                                <option value="Fixed">Fixed</option>
+                                <option value="Accepted Risk">Accepted Risk</option>
+                                <option value="False Positive">False Positive</option>
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-bold text-slate-700">{firstDate.dateStr}</p>
+                              <p className="text-[10px] text-text-muted font-normal mt-0.5">{firstDate.timeStr}</p>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-bold text-slate-700">{lastDate.dateStr}</p>
+                              <p className="text-[10px] text-text-muted font-normal mt-0.5">{lastDate.timeStr}</p>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3 text-slate-700 font-mono font-bold text-center">
+                            {f.occurrences}
+                          </td>
+
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              {(() => {
+                                const initials = getInitials(f.assignedTo);
+                                const avatarBg = getAvatarBg(f.assignedTo);
+                                return (
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-extrabold border ${avatarBg}`}>
+                                    {initials}
+                                  </div>
+                                );
+                              })()}
+                              <span className="truncate text-xs font-semibold text-slate-700 max-w-[90px]">{f.assignedTo}</span>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="relative group inline-block">
+                              <button className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                              <div className="absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
+                                <button 
+                                  onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
+                                  className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
                                 >
-                                  <option value="Open">Open</option>
-                                  <option value="Investigating">Investigating</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Resolved">Resolved</option>
-                                  <option value="Mitigated">Mitigated</option>
-                                  <option value="Fixed">Fixed</option>
-                                  <option value="Accepted Risk">Accepted Risk</option>
-                                  <option value="False Positive">False Positive</option>
-                                </select>
-                                <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-                              </div>
-                            </td>
-
-                            <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                              <div className="relative group inline-block">
-                                <button className="p-1 hover:bg-bg-secondary rounded-lg text-text-muted hover:text-slate-800 transition-colors">
-                                  <MoreHorizontal className="w-4 h-4" />
+                                  Assign to Me
                                 </button>
-                                <div className="absolute right-0 mt-1 w-44 bg-white border border-border-warm rounded-2xl shadow-lg py-2 hidden group-hover:block z-50 text-left">
-                                  <button 
-                                    onClick={() => handleAssigneeChange(f.findingCode, f.asset.id, 'Arjay Escabas')}
-                                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors"
-                                  >
-                                    Assign to Me
-                                  </button>
-                                  <button 
-                                    onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
-                                    className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors"
-                                  >
-                                    View Details
-                                  </button>
-                                </div>
+                                <button 
+                                  onClick={() => { setDrawerFinding(f); setDrawerNotes(f.notes); setAiResponse(null); setAiMode(null); }}
+                                  className="w-full px-4 py-2 text-xs text-text-primary hover:bg-bg-secondary font-bold transition-colors font-sans"
+                                >
+                                  View Details
+                                </button>
                               </div>
-                            </td>
+                            </div>
+                          </td>
 
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
-              {/* Table Footer Pagination Controls matching Second Image */}
-              {!loading && totalFindings > 0 && (
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 px-6 py-3.5 bg-bg-secondary border-t border-border-warm text-xs text-text-muted font-semibold select-none">
+            {/* Table Footer Pagination Controls matching Second Image */}
+            {!loading && totalFindings > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 px-6 py-3.5 bg-bg-secondary border-t border-border-warm text-xs text-text-muted font-semibold select-none">
+                
+                {/* Left size controls */}
+                <div className="flex items-center gap-2">
+                  <span>Show</span>
+                  <select 
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-white border border-border-warm rounded-lg px-2 py-1 outline-none font-bold text-text-primary cursor-pointer shadow-sm"
+                  >
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <span>per page</span>
+                </div>
+
+                {/* Center page numbers navigation */}
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
                   
-                  {/* Left size controls */}
-                  <div className="flex items-center gap-2">
-                    <span>Show</span>
-                    <select 
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="bg-white border border-border-warm rounded-lg px-2 py-1 outline-none font-bold text-text-primary cursor-pointer shadow-sm"
-                    >
-                      <option value="10">10</option>
-                      <option value="20">20</option>
-                      <option value="50">50</option>
-                      <option value="100">100</option>
-                    </select>
-                    <span>per page</span>
-                  </div>
-
-                  {/* Center page numbers navigation */}
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <ChevronsLeft className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
+                  {(() => {
+                    const pages = [];
+                    // Always show page 1
+                    pages.push(1);
                     
-                    {(() => {
-                      // Sliding window of 3 pages around current page
-                      const windowSize = 3;
-                      const half = Math.floor(windowSize / 2);
-                      let startPage = Math.max(1, currentPage - half);
-                      let endPage = Math.min(totalPages, startPage + windowSize - 1);
-                      if (endPage - startPage < windowSize - 1) {
-                        startPage = Math.max(1, endPage - windowSize + 1);
+                    // If current page is > 3, show ellipsis
+                    if (currentPage > 3) {
+                      pages.push(-1); // -1 represents ellipsis
+                    }
+                    
+                    // Show page around current page
+                    for (let p = Math.max(2, currentPage - 1); p <= Math.min(totalPages - 1, currentPage + 1); p++) {
+                      if (!pages.includes(p)) {
+                        pages.push(p);
                       }
-                      const pages = [];
-                      for (let p = startPage; p <= endPage; p++) pages.push(p);
-                      return pages.map(page => (
+                    }
+                    
+                    // If current page is < totalPages - 2, show ellipsis
+                    if (currentPage < totalPages - 2) {
+                      pages.push(-2); // -2 represents ellipsis
+                    }
+                    
+                    // Always show last page if > 1
+                    if (totalPages > 1 && !pages.includes(totalPages)) {
+                      pages.push(totalPages);
+                    }
+                    
+                    return pages.map((page, idx) => {
+                      if (page < 0) {
+                        return (
+                          <span key={`ellipsis-${idx}`} className="px-1 text-text-muted font-bold text-xs select-none">
+                            ...
+                          </span>
+                        );
+                      }
+                      return (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
@@ -1165,34 +1271,33 @@ export default function FindingsPage() {
                         >
                           {page}
                         </button>
-                      ));
-                    })()}
+                      );
+                    });
+                  })()}
 
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <ChevronsRight className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Right label page state info */}
-                  <div>
-                    Page {currentPage} of {totalPages}
-                  </div>
-
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-1 hover:bg-white hover:border border-border-warm rounded disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
 
-            </div>
+                {/* Right label page state info */}
+                <div>
+                  Page {currentPage} of {totalPages}
+                </div>
+
+              </div>
+            )}
 
           </div>
 
