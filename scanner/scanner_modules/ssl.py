@@ -203,7 +203,12 @@ class SSLScanner(BaseScanner):
             finding_text = item.get("finding", "")
 
             # Map known vulnerabilities
-            if finding_id in _TESTSSL_VULNERABILITIES and "vulnerable" in finding_text.lower():
+            # Exclude false positive matches where finding_text contains "not vulnerable"
+            # or where testssl explicitly sets severity to "OK".
+            if (finding_id in _TESTSSL_VULNERABILITIES and 
+                    "vulnerable" in finding_text.lower() and 
+                    "not vulnerable" not in finding_text.lower() and 
+                    severity_str != "OK"):
                 vuln = _TESTSSL_VULNERABILITIES[finding_id]
                 findings.append(
                     Finding(

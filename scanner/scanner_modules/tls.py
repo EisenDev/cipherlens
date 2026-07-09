@@ -84,11 +84,13 @@ class TLSScanner(BaseScanner):
 
         findings: List[Finding] = []
         for item in raw_findings:
-            finding_id = item.get("id", "")
+            finding_id = item.get("id", "").strip()
             finding_text = item.get("finding", "").lower()
 
             for proto, (severity, ref) in _DEPRECATED_PROTOCOLS.items():
-                if proto.lower() in finding_id.lower() and "offered" in finding_text:
+                # Exact match to prevent "TLS1" matching "TLS1_2" / "TLS1_3",
+                # and verify "not offered" is not matched as "offered".
+                if finding_id.upper() == proto.upper() and "offered" in finding_text and "not offered" not in finding_text:
                     findings.append(
                         Finding(
                             title=f"Deprecated Protocol Enabled: {proto}",
