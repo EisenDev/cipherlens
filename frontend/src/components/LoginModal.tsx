@@ -21,9 +21,9 @@ export function LoginModal() {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
-
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+      const envUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = typeof envUrl === 'string' ? envUrl : 'http://localhost:3005';
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: {

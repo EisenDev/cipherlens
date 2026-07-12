@@ -1,7 +1,8 @@
 import { useAuthStore } from '../store/useAuthStore';
 
 const getApiUrl = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:3005';
+  const url = import.meta.env.VITE_API_URL;
+  return typeof url === 'string' ? url : 'http://localhost:3005';
 };
 
 export const apiRequest = async (path: string, options: RequestInit = {}) => {

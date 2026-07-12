@@ -43,9 +43,9 @@ export default function SignupPage() {
     setStatus('loading');
     setErrorMessage(null);
     setFieldErrors({});
-
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+      const envUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = typeof envUrl === 'string' ? envUrl : 'http://localhost:3005';
       const response = await fetch(`${apiUrl}/api/auth/signup`, {
         method: 'POST',
         headers: {

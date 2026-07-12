@@ -48,7 +48,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           build-args: |
-            VITE_API_URL=/api
+            VITE_API_URL=
           tags: ${{ env.IMAGE_NAME_FRONTEND }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
