@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Redis cache & task queue message broker
+  redis:
+    image: redis:7-alpine
+    container_name: cipherlens-cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend API Server + Scanner Worker (Pre-built Image)
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/eisendev/cipherlens-backend:latest}
+    container_name: cipherlens-backend
+    restart: always
+    ports:
+      - "3005:3005"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - PORT=3005
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # React Frontend Nginx Web Server (Pre-built Image)
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/eisendev/cipherlens-frontend:latest}
+    container_name: cipherlens-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  redis_data:
+    driver: local
