@@ -65,12 +65,6 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           VM_IP: 20.6.32.235
           VM_USER: azureuser
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
-          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
-          VITE_API_URL: /api
         run: |
           # Setup SSH Agent
           mkdir -p ~/.ssh
@@ -88,18 +82,6 @@ jobs:
             
             # Login to GitHub Packages inside VM
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Create or update production .env
-            cat << ENVEOF > .env
-            DATABASE_URL="$DATABASE_URL"
-            GEMINI_API_KEY="$GEMINI_API_KEY"
-            JWT_SECRET="$JWT_SECRET"
-            JWT_ACCESS_SECRET="$JWT_ACCESS_SECRET"
-            JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET"
-            VITE_API_URL="$VITE_API_URL"
-            BACKEND_IMAGE=${{ env.IMAGE_NAME_BACKEND }}:latest
-            FRONTEND_IMAGE=${{ env.IMAGE_NAME_FRONTEND }}:latest
-            ENVEOF
 
             # Pull latest images and spin them up
             docker compose pull
