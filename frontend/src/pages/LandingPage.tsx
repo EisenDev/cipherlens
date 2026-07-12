@@ -31,7 +31,7 @@ function CheckIcon() {
 // Red cross icon for comparisons
 function CrossIcon() {
   return (
-    <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg className="w-4 h-4 text-danger flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
@@ -50,7 +50,7 @@ function DashboardMockup() {
 
   const risks = [
     { label: 'Secrets Exposure', val: 'Critical', color: 'bg-red-600', w: 'w-full' },
-    { label: 'Dependency Risk', val: 'High', color: 'bg-amber-500', w: 'w-3/4' },
+    { label: 'Dependency Risk', val: 'High', color: 'bg-warning-bg0', w: 'w-3/4' },
     { label: 'Security Headers', val: 'Medium', color: 'bg-yellow-500', w: 'w-1/2' },
     { label: 'SSL / TLS Issues', val: 'Low', color: 'bg-emerald-600', w: 'w-1/3' },
     { label: 'Info Exposure', val: 'Low', color: 'bg-emerald-600', w: 'w-1/5' },
@@ -72,7 +72,7 @@ function DashboardMockup() {
       />
 
       <div
-        className="relative rounded-2xl overflow-hidden bg-white"
+        className="relative rounded-2xl overflow-hidden bg-bg-primary"
         style={{
           border: '1px solid var(--color-border)',
           boxShadow: 'var(--shadow-panel)',
@@ -141,7 +141,7 @@ function DashboardMockup() {
                   <div className="flex items-end gap-2">
                     <span className="text-3xl font-light leading-none" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}>82</span>
                     <span className="text-[10px] text-text-muted mb-0.5" style={{ fontFamily: 'var(--font-body)' }}>/100</span>
-                    <span className="text-[10px] font-semibold text-emerald-600 mb-0.5" style={{ fontFamily: 'var(--font-body)' }}>↑ 12 pts</span>
+                    <span className="text-[10px] font-semibold text-success mb-0.5" style={{ fontFamily: 'var(--font-body)' }}>↑ 12 pts</span>
                   </div>
                 </div>
 
@@ -160,10 +160,10 @@ function DashboardMockup() {
               {/* Counts Box (2x2 grid) */}
               <div className="col-span-4 grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Critical', val: '1', color: 'text-red-700', bg: 'bg-red-50' },
-                  { label: 'High', val: '4', color: 'text-amber-600', bg: 'bg-amber-50' },
+                  { label: 'Critical', val: '1', color: 'text-danger', bg: 'bg-danger-bg' },
+                  { label: 'High', val: '4', color: 'text-warning', bg: 'bg-warning-bg' },
                   { label: 'Medium', val: '11', color: 'text-yellow-600', bg: 'bg-yellow-50' },
-                  { label: 'Low', val: '28', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'Low', val: '28', color: 'text-success', bg: 'bg-success-bg' },
                 ].map((stat) => (
                   <div
                     key={stat.label}
@@ -368,7 +368,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (accessToken) {
-      navigate('/scans');
+      navigate('/overview');
     }
   }, [accessToken, navigate]);
 
@@ -513,11 +513,11 @@ export default function LandingPage() {
 
   // ─── Executive Report Preview data ────────────────────────
   const executiveFindings = [
-    { label: 'Hardcoded API Key in /config/production.env', sev: 'CRITICAL', color: 'text-red-600 bg-red-50 border-red-200' },
-    { label: 'Outdated Dependency (lodash 4.17.11)', sev: 'HIGH', color: 'text-amber-600 bg-amber-50 border-amber-200' },
-    { label: 'Missing Content Security Policy Header', sev: 'HIGH', color: 'text-amber-600 bg-amber-50 border-amber-200' },
-    { label: 'SSL Certificate expiring in 14 days', sev: 'MEDIUM', color: 'text-blue-600 bg-blue-50 border-blue-200' },
-    { label: 'X-Frame-Options not configured', sev: 'MEDIUM', color: 'text-blue-600 bg-blue-50 border-blue-200' },
+    { label: 'Hardcoded API Key in /config/production.env', sev: 'CRITICAL', color: 'text-danger bg-danger-bg border-danger/30' },
+    { label: 'Outdated Dependency (lodash 4.17.11)', sev: 'HIGH', color: 'text-warning bg-warning-bg border-warning/30' },
+    { label: 'Missing Content Security Policy Header', sev: 'HIGH', color: 'text-warning bg-warning-bg border-warning/30' },
+    { label: 'SSL Certificate expiring in 14 days', sev: 'MEDIUM', color: 'text-info bg-info-bg border-info/30' },
+    { label: 'X-Frame-Options not configured', sev: 'MEDIUM', color: 'text-info bg-info-bg border-info/30' },
   ];
 
   // ─── Why CipherLens lists ─────────────────────────────────
@@ -629,7 +629,7 @@ export default function LandingPage() {
           {featureCards.map((c, idx) => (
             <div
               key={idx}
-              className="card bg-white p-8 flex flex-col gap-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-hover"
+              className="card bg-bg-primary p-8 flex flex-col gap-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-hover"
             >
               <div className="flex items-center gap-3">
                 <IconWrapper variant="accent">{c.icon}</IconWrapper>
@@ -661,7 +661,7 @@ export default function LandingPage() {
           {timelineStages.map((stage, idx) => (
             <div
               key={idx}
-              className="flex flex-col items-center text-center p-4 rounded-xl bg-white border border-border-warm relative transition-all duration-300 hover:scale-[1.02] hover:shadow-sm"
+              className="flex flex-col items-center text-center p-4 rounded-xl bg-bg-primary border border-border-warm relative transition-all duration-300 hover:scale-[1.02] hover:shadow-sm"
             >
               {/* Icon Circle */}
               <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-bg-secondary border border-border-strong text-text-secondary mb-3 flex-shrink-0">
@@ -710,7 +710,7 @@ export default function LandingPage() {
         </div>
 
         <div
-          className="mx-auto max-w-5xl rounded-2xl bg-white p-8 flex flex-col gap-6"
+          className="mx-auto max-w-5xl rounded-2xl bg-bg-primary p-8 flex flex-col gap-6"
           style={{ border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-card)' }}
         >
           {/* Row 1: 6 items */}
@@ -738,7 +738,7 @@ export default function LandingPage() {
       <SectionContainer bg="primary">
         <div className="grid lg:grid-cols-12 gap-8">
           {/* Left: Report Card (7 columns) */}
-          <div className="lg:col-span-7 card bg-white p-6 flex flex-col gap-6">
+          <div className="lg:col-span-7 card bg-bg-primary p-6 flex flex-col gap-6">
             {/* Header */}
             <div className="border-b pb-4 flex justify-between items-center" style={{ borderColor: 'var(--color-border)' }}>
               <p className="text-xs font-bold text-text-muted uppercase tracking-wider" style={{ fontFamily: 'var(--font-body)' }}>EXECUTIVE REPORT PREVIEW</p>
@@ -757,7 +757,7 @@ export default function LandingPage() {
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-lg font-bold" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-primary)' }}>82</span>
-                      <span className="text-[8px] font-medium text-red-600" style={{ fontFamily: 'var(--font-body)' }}>High Risk</span>
+                      <span className="text-[8px] font-medium text-danger" style={{ fontFamily: 'var(--font-body)' }}>High Risk</span>
                     </div>
                   </div>
                 </div>
@@ -790,7 +790,7 @@ export default function LandingPage() {
                     {executiveFindings.map((f, idx) => (
                       <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-bg-primary border border-border-warm">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${idx === 0 ? 'bg-red-600' : idx < 3 ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${idx === 0 ? 'bg-red-600' : idx < 3 ? 'bg-warning-bg0' : 'bg-info-bg0'}`} />
                           <span className="text-[10px] text-text-secondary truncate" style={{ fontFamily: 'var(--font-body)' }}>{f.label}</span>
                         </div>
                         <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${f.color}`} style={{ fontFamily: 'var(--font-body)' }}>{f.sev}</span>
@@ -860,7 +860,7 @@ export default function LandingPage() {
 
           {/* Right: Why CipherLens comparison (5 columns) */}
           <div
-            className="lg:col-span-5 card bg-white p-6 flex flex-col gap-6"
+            className="lg:col-span-5 card bg-bg-primary p-6 flex flex-col gap-6"
             style={{ border: '1.5px solid var(--color-accent-light)' }}
           >
             <div className="border-b pb-4" style={{ borderColor: 'var(--color-border)' }}>
@@ -909,7 +909,7 @@ export default function LandingPage() {
           {roadmapItems.map((item, idx) => (
             <div
               key={idx}
-              className="card bg-white p-4 flex flex-col items-center justify-between text-center gap-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+              className="card bg-bg-primary p-4 flex flex-col items-center justify-between text-center gap-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
             >
               <span className="text-2xl">{item.icon}</span>
               <div>

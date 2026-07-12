@@ -49,7 +49,7 @@ export default function QueueDetailsModal({ isOpen, scanId, onClose }: QueueDeta
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="relative w-full max-w-md bg-white rounded-3xl border border-border-warm shadow-xl z-10 overflow-hidden flex flex-col"
+            className="relative w-full max-w-md bg-bg-card rounded-3xl border border-border-warm shadow-xl z-10 overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="px-6 py-5 border-b border-border-warm flex justify-between items-center bg-bg-primary">
@@ -63,7 +63,7 @@ export default function QueueDetailsModal({ isOpen, scanId, onClose }: QueueDeta
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full border border-border-warm bg-white hover:bg-bg-primary text-text-muted hover:text-text-primary flex items-center justify-center cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-full border border-border-warm bg-bg-card hover:bg-bg-primary text-text-muted hover:text-text-primary flex items-center justify-center cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -124,7 +124,7 @@ export default function QueueDetailsModal({ isOpen, scanId, onClose }: QueueDeta
             <div className="px-6 py-4 border-t border-border-warm flex justify-end bg-bg-primary">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-white border border-border-warm hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-bg-card border border-border-warm hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
               >
                 Close Queue details
               </button>

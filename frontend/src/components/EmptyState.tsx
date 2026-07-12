@@ -14,7 +14,7 @@ export default function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-3xl border border-border-warm shadow-sm py-16">
+    <div className="flex flex-col items-center justify-center p-12 text-center bg-bg-card rounded-3xl border border-border-warm shadow-sm py-16">
       {/* Icon Wrapper */}
       <div className="w-12 h-12 rounded-2xl bg-bg-secondary border border-border-warm flex items-center justify-center text-text-muted mb-4">
         {icon}

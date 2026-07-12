@@ -14,49 +14,51 @@
 /* ---- Design Tokens ---- */
 @layer base {
   :root {
-    /* --- Color Palette --- */
+    /* --- Color Palette — Light Theme (default) --- */
+
     /* Backgrounds */
-    --color-bg-primary: #FAFAF7;        /* Warm Ivory */
+    --color-bg-primary:   #FAFAF7;     /* Warm Ivory */
     --color-bg-secondary: #F5F3EE;     /* Soft Beige */
-    --color-bg-card: #FFFFFF;          /* Pure White */
-    --color-bg-muted: #F0EDE6;         /* Muted Warm */
+    --color-bg-card:      #FFFFFF;     /* Pure White */
+    --color-bg-muted:     #F0EDE6;     /* Muted Warm */
+    --color-bg-elevated:  #FFFFFF;     /* Modals / Dropdowns */
 
     /* Text */
-    --color-text-primary: #1A1A1A;     /* Dark Charcoal */
+    --color-text-primary:   #1A1A1A;   /* Dark Charcoal */
     --color-text-secondary: #6B6B6B;   /* Muted Gray */
-    --color-text-muted: #9CA3AF;       /* Light Muted */
-    --color-text-inverse: #FFFFFF;     /* White for dark bg */
-    --color-text-accent: #C4933F;      /* Gold Accent */
+    --color-text-muted:     #9CA3AF;   /* Light Muted */
+    --color-text-inverse:   #FFFFFF;   /* White for dark bg */
+    --color-text-accent:    #C4933F;   /* Gold Accent */
 
     /* Accent */
-    --color-accent: #C4933F;           /* Muted Gold */
-    --color-accent-dark: #A67C2E;      /* Deep Gold */
-    --color-accent-light: #E8C98A;     /* Light Gold */
+    --color-accent:        #C4933F;    /* Muted Gold */
+    --color-accent-dark:   #A67C2E;    /* Deep Gold */
+    --color-accent-light:  #E8C98A;    /* Light Gold */
     --color-accent-subtle: #FDF6E7;    /* Subtle Gold bg */
 
     /* Semantic */
-    --color-success: #52796F;          /* Muted Green */
+    --color-success:    #52796F;
     --color-success-bg: #EBF4F1;
-    --color-warning: #D97706;          /* Amber */
+    --color-warning:    #D97706;
     --color-warning-bg: #FEF3C7;
-    --color-danger: #9B2335;           /* Muted Red */
-    --color-danger-bg: #FEE2E2;
-    --color-info: #2B6CB0;             /* Muted Blue */
-    --color-info-bg: #EBF4FF;
+    --color-danger:     #9B2335;
+    --color-danger-bg:  #FEE2E2;
+    --color-info:       #2B6CB0;
+    --color-info-bg:    #EBF4FF;
 
     /* Borders */
-    --color-border: #E5E3DE;           /* Light Warm Gray */
-    --color-border-strong: #D1CEC8;    /* Stronger border */
-    --color-divider: #EDEAE4;          /* Subtle Beige */
+    --color-border:        #E5E3DE;
+    --color-border-strong: #D1CEC8;
+    --color-divider:       #EDEAE4;
 
     /* Interactive */
-    --color-hover: #F0EDE6;
+    --color-hover:      #F0EDE6;
     --color-focus-ring: #C4933F;
-    --color-disabled: #D1CEC8;
+    --color-disabled:   #D1CEC8;
 
-    /* Dark footer */
-    --color-bg-dark: #1A1A1A;
-    --color-text-on-dark: #F5F3EE;
+    /* Dark footer (always dark regardless of theme) */
+    --color-bg-dark:          #1A1A1A;
+    --color-text-on-dark:     #F5F3EE;
     --color-text-on-dark-muted: #9CA3AF;
 
     /* --- Typography --- */
@@ -124,6 +126,54 @@
 }
 
 /* ==========================================================================
+   Dark Theme Token Overrides
+   Placed OUTSIDE @layer so it has higher cascade priority than all
+   Tailwind utility classes. Applied via <html data-theme="dark">.
+   Only dashboard CSS variables respond — landing/login/signup are unaffected.
+   ========================================================================== */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --color-bg-primary:   #141210;
+  --color-bg-secondary: #1C1915;
+  --color-bg-card:      #201C16;
+  --color-bg-muted:     #2A2520;
+  --color-bg-elevated:  #2E2820;
+
+  /* Text */
+  --color-text-primary:   #F0EBE0;
+  --color-text-secondary: #C2B6A6;
+  --color-text-muted:     #9A8A75;
+  --color-text-inverse:   #141210;
+  --color-text-accent:    #E8C98A;
+
+  /* Accent */
+  --color-accent:        #C4933F;
+  --color-accent-dark:   #E8C98A;
+  --color-accent-light:  #E8C98A;
+  --color-accent-subtle: #2A2010;
+
+  /* Semantic */
+  --color-success:    #6BAF9F;
+  --color-success-bg: #0D2920;
+  --color-warning:    #F59E0B;
+  --color-warning-bg: #2A1F08;
+  --color-danger:     #E05A6A;
+  --color-danger-bg:  #2D0C12;
+  --color-info:       #60A5FA;
+  --color-info-bg:    #0D1F36;
+
+  /* Borders */
+  --color-border:        #3D3120;
+  --color-border-strong: #5C4A2E;
+  --color-divider:       #2E2418;
+
+  /* Interactive */
+  --color-hover:      #2A2418;
+  --color-focus-ring: #E8C98A;
+  --color-disabled:   #4A3F30;
+}
+
+/* ==========================================================================
    Base Styles
    ========================================================================== */
 @layer base {
@@ -144,6 +194,7 @@
     line-height: var(--leading-normal);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 
   ::selection {

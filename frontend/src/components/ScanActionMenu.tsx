@@ -28,7 +28,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
         return (
           <button
             onClick={() => onAction('VIEW_PROGRESS')}
-            className="px-3 py-1.5 rounded-lg border border-border-warm bg-white hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
+            className="px-3 py-1.5 rounded-lg border border-border-warm bg-bg-card hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
           >
             View Progress
           </button>
@@ -37,7 +37,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
         return (
           <button
             onClick={() => onAction('VIEW_DETAILS')}
-            className="px-3 py-1.5 rounded-lg border border-border-warm bg-white hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
+            className="px-3 py-1.5 rounded-lg border border-border-warm bg-bg-card hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
           >
             View Details
           </button>
@@ -46,7 +46,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
         return (
           <button
             onClick={() => onAction('VIEW_RESULTS')}
-            className="px-3 py-1.5 rounded-lg border border-border-warm bg-white hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
+            className="px-3 py-1.5 rounded-lg border border-border-warm bg-bg-card hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
           >
             View Results
           </button>
@@ -55,7 +55,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
         return (
           <button
             onClick={() => onAction('VIEW_ERROR')}
-            className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-[10px] font-bold text-red-700 transition-colors cursor-pointer shadow-sm select-none"
+            className="px-3 py-1.5 rounded-lg border border-danger/30 bg-danger-bg hover:bg-danger-bg text-[10px] font-bold text-danger transition-colors cursor-pointer shadow-sm select-none"
           >
             View Error
           </button>
@@ -64,7 +64,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
         return (
           <button
             onClick={() => onAction('VIEW_DETAILS')}
-            className="px-3 py-1.5 rounded-lg border border-border-warm bg-white hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
+            className="px-3 py-1.5 rounded-lg border border-border-warm bg-bg-card hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer shadow-sm select-none"
           >
             View Details
           </button>
@@ -87,7 +87,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
           }}
           className="w-full px-4 py-2 text-left hover:bg-bg-primary text-[10px] text-text-primary font-semibold flex items-center gap-2 cursor-pointer transition-colors"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+          <span className="w-1.5 h-1.5 rounded-full bg-warning-bg0" />
           Cancel Scan
         </button>
       );
@@ -104,7 +104,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
           }}
           className="w-full px-4 py-2 text-left hover:bg-bg-primary text-[10px] text-text-primary font-semibold flex items-center gap-2 cursor-pointer transition-colors"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+          <span className="w-1.5 h-1.5 rounded-full bg-info-bg0" />
           Retry Scan
         </button>
       );
@@ -135,9 +135,9 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
           setIsOpen(false);
           onAction('DELETE');
         }}
-        className="w-full px-4 py-2 text-left hover:bg-red-50 text-[10px] text-red-600 font-semibold flex items-center gap-2 cursor-pointer border-t border-border-warm/40 transition-colors"
+        className="w-full px-4 py-2 text-left hover:bg-danger-bg text-[10px] text-danger font-semibold flex items-center gap-2 cursor-pointer border-t border-border-warm/40 transition-colors"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+        <span className="w-1.5 h-1.5 rounded-full bg-danger-bg0" />
         Delete Scan
       </button>
     );
@@ -152,7 +152,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
       {/* Options Dropdown trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-8 h-8 rounded-xl border border-border-warm bg-white text-text-muted hover:text-text-primary flex items-center justify-center text-[10px] transition-colors cursor-pointer shadow-sm select-none focus:outline-none ${
+        className={`w-8 h-8 rounded-xl border border-border-warm bg-bg-card text-text-muted hover:text-text-primary flex items-center justify-center text-[10px] transition-colors cursor-pointer shadow-sm select-none focus:outline-none ${
           isOpen ? 'bg-bg-primary text-text-primary border-accent' : ''
         }`}
       >
@@ -161,7 +161,7 @@ export default function ScanActionMenu({ scan, onAction }: ScanActionMenuProps) 
 
       {/* Dropdown Box */}
       {isOpen && (
-        <div className="absolute right-0 top-9 w-36 bg-white rounded-2xl border border-border-warm shadow-lg py-2 z-30 divide-y divide-border-warm/40 overflow-hidden">
+        <div className="absolute right-0 top-9 w-36 bg-bg-card rounded-2xl border border-border-warm shadow-lg py-2 z-30 divide-y divide-border-warm/40 overflow-hidden">
           {renderDropdownItems()}
         </div>
       )}

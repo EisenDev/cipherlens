@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database.session import get_db
 from database.models import User, RefreshToken
-from schemas.schemas import UserSignup, UserLogin, TokenResponse, RefreshTokenInput, UserResponse
+from schemas.schemas import UserSignup, UserLogin, TokenResponse, RefreshTokenInput, UserResponse, UserProfileUpdate, UserPasswordUpdate
 from core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, verify_refresh_token
 from api.deps import get_current_user
-from services.seed import seed_user_data
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -38,11 +37,6 @@ def signup(payload: UserSignup, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    # Seed 128 scan records automatically so user sees stats
-    try:
-        seed_user_data(db, user.id)
-    except Exception as e:
-        print(f"Failed to seed user mockup data: {e}")
 
     # Generate JWT Tokens
     access_token = create_access_token(data={"sub": user.id})
@@ -157,3 +151,37 @@ def logout(payload: RefreshTokenInput, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.put("/profile", response_model=UserResponse)
+def update_profile(
+    payload: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if payload.fullName is not None:
+        current_user.fullName = payload.fullName
+    if payload.companyName is not None:
+        current_user.companyName = payload.companyName
+    if payload.role is not None:
+        current_user.role = payload.role
+        
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.put("/password")
+def update_password(
+    payload: UserPasswordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not verify_password(payload.currentPassword, current_user.passwordHash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password."
+        )
+    current_user.passwordHash = get_password_hash(payload.newPassword)
+    db.commit()
+    return {"success": True, "message": "Password updated successfully."}

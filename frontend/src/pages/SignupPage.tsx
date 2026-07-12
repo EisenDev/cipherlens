@@ -10,7 +10,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (accessToken) {
-      navigate('/scans');
+      navigate('/overview');
     }
   }, [accessToken, navigate]);
   const { openLoginModal } = useUIStore();
@@ -86,9 +86,9 @@ export default function SignupPage() {
   // Micro-interactive password strength meter
   const getPasswordStrength = () => {
     if (!password) return { label: 'Weak', color: 'bg-border-warm', textClass: 'text-text-muted', percent: 'w-0' };
-    if (password.length < 6) return { label: 'Weak', color: 'bg-red-500', textClass: 'text-red-500', percent: 'w-1/3' };
-    if (password.length < 10) return { label: 'Medium', color: 'bg-amber-500', textClass: 'text-amber-500', percent: 'w-2/3' };
-    return { label: 'Strong', color: 'bg-emerald-600', textClass: 'text-emerald-600', percent: 'w-full' };
+    if (password.length < 6) return { label: 'Weak', color: 'bg-danger-bg0', textClass: 'text-danger', percent: 'w-1/3' };
+    if (password.length < 10) return { label: 'Medium', color: 'bg-warning-bg0', textClass: 'text-warning', percent: 'w-2/3' };
+    return { label: 'Strong', color: 'bg-emerald-600', textClass: 'text-success', percent: 'w-full' };
   };
 
   const strength = getPasswordStrength();
@@ -97,7 +97,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col">
       {/* Header Row */}
       <header
-        className="w-full border-b border-border-warm bg-white sticky top-0 z-40"
+        className="w-full border-b border-border-warm bg-bg-primary sticky top-0 z-40"
         style={{
           backgroundColor: 'rgba(250, 250, 247, 0.92)',
           backdropFilter: 'blur(12px)',
@@ -215,15 +215,15 @@ export default function SignupPage() {
             {/* Dashboard Mini Mockup */}
             <div className="hidden lg:block pt-4">
               <div
-                className="rounded-2xl border border-border-warm bg-white p-5 shadow-panel opacity-90 relative overflow-hidden"
+                className="rounded-2xl border border-border-warm bg-bg-primary p-5 shadow-panel opacity-90 relative overflow-hidden"
                 style={{ transform: 'scale(0.9)', transformOrigin: 'left top' }}
               >
                 <div className="flex items-center justify-between pb-3 border-b mb-3" style={{ borderColor: 'var(--color-border)' }}>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <div className="w-2 h-2 rounded-full bg-success-bg0" />
                     <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider" style={{ fontFamily: 'var(--font-body)' }}>Overall Security Score</span>
                   </div>
-                  <span className="text-xs font-bold text-emerald-600" style={{ fontFamily: 'var(--font-body)' }}>82 / 100</span>
+                  <span className="text-xs font-bold text-success" style={{ fontFamily: 'var(--font-body)' }}>82 / 100</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="relative w-12 h-12 flex-shrink-0">
@@ -238,11 +238,11 @@ export default function SignupPage() {
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between text-[9px] text-text-muted" style={{ fontFamily: 'var(--font-body)' }}>
                       <span>github.com/acme/backend</span>
-                      <span className="text-emerald-600 font-semibold">Completed</span>
+                      <span className="text-success font-semibold">Completed</span>
                     </div>
                     <div className="flex items-center justify-between text-[9px] text-text-muted" style={{ fontFamily: 'var(--font-body)' }}>
                       <span>acme.com (Website Scan)</span>
-                      <span className="text-emerald-600 font-semibold">Completed</span>
+                      <span className="text-success font-semibold">Completed</span>
                     </div>
                   </div>
                 </div>
@@ -254,11 +254,11 @@ export default function SignupPage() {
           <div className="lg:col-span-6">
             {status === 'success' ? (
               <div
-                className="card bg-white p-8 rounded-3xl text-center flex flex-col items-center justify-center py-16"
+                className="card bg-bg-primary p-8 rounded-3xl text-center flex flex-col items-center justify-center py-16"
                 style={{ border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-panel)' }}
               >
                 {/* Gold Checkmark Circle */}
-                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center border border-accent/20 mb-6">
+                <div className="w-16 h-16 rounded-full bg-warning-bg flex items-center justify-center border border-accent/20 mb-6">
                   <svg className="w-8 h-8 text-accent animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -280,7 +280,7 @@ export default function SignupPage() {
 
                 <div className="bg-bg-secondary border border-border-warm rounded-2xl p-4 mb-8 text-left w-full text-xs space-y-1.5" style={{ fontFamily: 'var(--font-body)' }}>
                   <div className="flex items-center gap-1.5 font-semibold text-text-primary">
-                    <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                     Enterprise Security Profile Active
@@ -309,7 +309,7 @@ export default function SignupPage() {
               </div>
             ) : (
               <div
-                className="card bg-white p-8 rounded-3xl"
+                className="card bg-bg-primary p-8 rounded-3xl"
                 style={{ border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-panel)' }}
               >
                 <div className="text-center mb-8">
@@ -328,8 +328,8 @@ export default function SignupPage() {
                 </div>
 
                 {errorMessage && (
-                  <div className="p-3.5 mb-5 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 flex items-start gap-2.5" style={{ fontFamily: 'var(--font-body)' }}>
-                    <svg className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div className="p-3.5 mb-5 rounded-xl border border-danger/30 bg-danger-bg text-xs text-danger flex items-start gap-2.5" style={{ fontFamily: 'var(--font-body)' }}>
+                    <svg className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <span>{errorMessage}</span>
@@ -354,12 +354,12 @@ export default function SignupPage() {
                         placeholder="John Doe"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${fieldErrors.fullName ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${fieldErrors.fullName ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
                         style={{ fontFamily: 'var(--font-body)' }}
                       />
                     </div>
                     {fieldErrors.fullName && (
-                      <p className="text-[10px] text-red-500 font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+                      <p className="text-[10px] text-danger font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
                         {fieldErrors.fullName}
                       </p>
                     )}
@@ -382,12 +382,12 @@ export default function SignupPage() {
                         placeholder="you@company.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${fieldErrors.email ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${fieldErrors.email ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
                         style={{ fontFamily: 'var(--font-body)' }}
                       />
                     </div>
                     {fieldErrors.email && (
-                      <p className="text-[10px] text-red-500 font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+                      <p className="text-[10px] text-danger font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
                         {fieldErrors.email}
                       </p>
                     )}
@@ -410,7 +410,7 @@ export default function SignupPage() {
                         placeholder="Create a strong password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${fieldErrors.password ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
+                        className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${fieldErrors.password ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
                         style={{ fontFamily: 'var(--font-body)' }}
                       />
                       <button
@@ -422,7 +422,7 @@ export default function SignupPage() {
                       </button>
                     </div>
                     {fieldErrors.password && (
-                      <p className="text-[10px] text-red-500 font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+                      <p className="text-[10px] text-danger font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
                         {fieldErrors.password}
                       </p>
                     )}
@@ -458,7 +458,7 @@ export default function SignupPage() {
                         placeholder="Confirm your password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${fieldErrors.confirmPassword ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
+                        className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${fieldErrors.confirmPassword ? 'border-red-400 focus:border-red-400' : 'border-border-warm focus:border-accent'} bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none transition-colors`}
                         style={{ fontFamily: 'var(--font-body)' }}
                       />
                       <button
@@ -470,7 +470,7 @@ export default function SignupPage() {
                       </button>
                     </div>
                     {fieldErrors.confirmPassword && (
-                      <p className="text-[10px] text-red-500 font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
+                      <p className="text-[10px] text-danger font-semibold mt-1" style={{ fontFamily: 'var(--font-body)' }}>
                         {fieldErrors.confirmPassword}
                       </p>
                     )}
@@ -492,7 +492,7 @@ export default function SignupPage() {
                         placeholder="Acme Corporation"
                         value={company}
                         onChange={(e) => setCompany(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-warm bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
                         style={{ fontFamily: 'var(--font-body)' }}
                       />
                     </div>
@@ -512,7 +512,7 @@ export default function SignupPage() {
                         <select
                           value={teamSize}
                           onChange={(e) => setTeamSize(e.target.value)}
-                          className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-border-warm bg-white text-xs text-text-primary focus:outline-none focus:border-accent appearance-none cursor-pointer"
+                          className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-xs text-text-primary focus:outline-none focus:border-accent appearance-none cursor-pointer"
                           style={{ fontFamily: 'var(--font-body)' }}
                         >
                           <option value="">Select team size</option>
@@ -540,7 +540,7 @@ export default function SignupPage() {
                           required
                           value={role}
                           onChange={(e) => setRole(e.target.value)}
-                          className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-border-warm bg-white text-xs text-text-primary focus:outline-none focus:border-accent appearance-none cursor-pointer"
+                          className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-xs text-text-primary focus:outline-none focus:border-accent appearance-none cursor-pointer"
                           style={{ fontFamily: 'var(--font-body)' }}
                         >
                           <option value="">Select your role</option>
@@ -564,7 +564,7 @@ export default function SignupPage() {
                       required
                       checked={agree}
                       onChange={(e) => setAgree(e.target.checked)}
-                      className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent bg-white accent-accent cursor-pointer mt-0.5"
+                      className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent bg-bg-primary accent-accent cursor-pointer mt-0.5"
                     />
                     <label htmlFor="agree" className="text-xs font-semibold text-text-secondary cursor-pointer select-none leading-relaxed" style={{ fontFamily: 'var(--font-body)' }}>
                       I agree to the{' '}
@@ -601,7 +601,7 @@ export default function SignupPage() {
                 <div className="relative my-6 text-center">
                   <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-border-warm" />
                   <span
-                    className="relative z-10 px-3 bg-white text-[10px] font-bold text-text-muted uppercase tracking-widest"
+                    className="relative z-10 px-3 bg-bg-primary text-[10px] font-bold text-text-muted uppercase tracking-widest"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     or continue with
@@ -613,7 +613,7 @@ export default function SignupPage() {
                   {/* GitHub */}
                   <button
                     type="button"
-                    className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-white text-xs font-bold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-xs font-bold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -625,7 +625,7 @@ export default function SignupPage() {
                   {/* Google */}
                   <button
                     type="button"
-                    className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-white text-xs font-bold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-xs font-bold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -637,7 +637,7 @@ export default function SignupPage() {
                   {/* Microsoft */}
                   <button
                     type="button"
-                    className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-white text-xs font-bold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-xs font-bold text-text-primary hover:bg-bg-secondary transition-colors cursor-pointer"
                     style={{ fontFamily: 'var(--font-body)' }}
                   >
                     <svg className="w-4 h-4" viewBox="0 0 23 23">

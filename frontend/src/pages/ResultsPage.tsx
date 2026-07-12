@@ -1,10 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { useRealScanStatus, useScanResults } from '../hooks/useScans';
+import { useAuthStore } from '../store/useAuthStore';
+import { useRealScanStatus, useScanResults, usePatchScan } from '../hooks/useScans';
 import type { ScanResultItem } from '../hooks/useScans';
 import { apiRequest } from '../api/client';
-import { Shield, ShieldAlert, ShieldCheck, ShieldX, Sparkles, Info } from 'lucide-react';
+import NotFoundPage from './NotFoundPage';
+import { LoadingScreen } from '../components/LoadingScreen';
+import { Shield, ShieldAlert, ShieldCheck, ShieldX, Sparkles, Info, ArrowLeft, Download, FileJson, Share2 } from 'lucide-react';
 
 const cleanToolName = (toolStr: string | null) => {
   if (!toolStr) return 'N/A';
@@ -114,11 +117,20 @@ const getFindingMetrics = (finding: ScanResultItem, scanData: any) => {
 
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const initials = user?.fullName
+    ?.split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() ?? 'JD';
+
 
   // Queries
   const { data: scan, isLoading: scanLoading, error: scanError } = useRealScanStatus(id || null, true);
   const { data: resultsData } = useScanResults(id || null, true);
+
+  const patchScan = usePatchScan();
 
   // States
   const [selectedSeverity, setSelectedSeverity] = useState<string>('ALL'); // ALL, CRITICAL, HIGH, MEDIUM, LOW, INFO
@@ -126,6 +138,20 @@ export default function ResultsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedFinding, setSelectedFinding] = useState<ScanResultItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Share Settings States
+  const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
+  const [sharePrivacy, setSharePrivacy] = useState<'private' | 'public'>('private');
+  const [shareCopied, setShareCopied] = useState<boolean>(false);
+  const [isSavedSuccess, setIsSavedSuccess] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Sync sharePrivacy with scan data
+  useEffect(() => {
+    if (scan) {
+      setSharePrivacy(scan.isPublic ? 'public' : 'private');
+    }
+  }, [scan]);
 
   // AI States
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -343,30 +369,15 @@ export default function ResultsPage() {
 
   if (scanLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center text-xs text-text-muted">
-        <div className="flex flex-col items-center gap-3">
-          <span className="text-xl animate-spin">🔄</span>
-          <p className="font-semibold text-text-muted">Loading scan results...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="Loading Scan Results" 
+        subtitle="Retrieving security posture, metrics, and vulnerability findings..." 
+      />
     );
   }
 
   if (scanError || !scan || !id) {
-    return (
-      <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center p-6 text-xs text-red-600">
-        <div className="bg-white p-6 rounded-2xl border border-red-200 shadow-sm text-center max-w-sm space-y-4">
-          <p className="text-2xl">⚠️</p>
-          <p className="font-bold">Error loading scan results or record not found.</p>
-          <button
-            onClick={() => navigate('/scans')}
-            className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl cursor-pointer hover:bg-slate-800"
-          >
-            Return to Dashboard
-          </button>
-        </div>
-      </div>
-    );
+    return <NotFoundPage />;
   }
 
   // Count modules progress stats
@@ -394,16 +405,16 @@ export default function ResultsPage() {
   const getSeverityStyle = (severity: string) => {
     switch (severity?.toUpperCase()) {
       case 'CRITICAL':
-        return 'bg-red-50 border-red-200 text-red-700 font-bold';
+        return 'bg-danger-bg border-border text-text-primary font-bold';
       case 'HIGH':
-        return 'bg-orange-50 border-orange-200 text-orange-700 font-bold';
+        return 'bg-warning-bg border-border text-text-primary font-bold';
       case 'MEDIUM':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-700 font-bold';
+        return 'bg-warning-bg border-border text-text-primary font-bold';
       case 'LOW':
-        return 'bg-blue-50 border-blue-200 text-blue-700 font-bold';
+        return 'bg-info-bg border-border text-text-primary font-bold';
       case 'INFO':
       default:
-        return 'bg-slate-50 border-slate-200 text-slate-600 font-semibold';
+        return 'bg-bg-secondary border-border text-text-primary font-semibold';
     }
   };
 
@@ -423,12 +434,12 @@ export default function ResultsPage() {
 
   // Map backend color names to CSS classes
   const colorMap: Record<string, { colorClass: string; bgColor: string; borderColor: string }> = {
-    green: { colorClass: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
-    blue: { colorClass: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-    yellow: { colorClass: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
-    orange: { colorClass: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
-    red: { colorClass: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
-    gray: { colorClass: 'text-slate-600', bgColor: 'bg-slate-50', borderColor: 'border-slate-200' },
+    green: { colorClass: 'text-success', bgColor: 'bg-success-bg', borderColor: 'border-border' },
+    blue: { colorClass: 'text-info', bgColor: 'bg-info-bg', borderColor: 'border-border' },
+    yellow: { colorClass: 'text-warning', bgColor: 'bg-warning-bg', borderColor: 'border-border' },
+    orange: { colorClass: 'text-warning', bgColor: 'bg-warning-bg', borderColor: 'border-border' },
+    red: { colorClass: 'text-danger', bgColor: 'bg-danger-bg', borderColor: 'border-border' },
+    gray: { colorClass: 'text-text-secondary', bgColor: 'bg-bg-secondary', borderColor: 'border-border' },
   };
   const design = colorMap[postureColorStr] || colorMap.gray;
 
@@ -442,7 +453,7 @@ export default function ResultsPage() {
   const PostureIconComponent = iconMap[postureIconStr] || Shield;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] flex overflow-hidden">
+    <div className="min-h-screen bg-bg-primary flex overflow-hidden">
       
       {/* Sidebar Navigation */}
       <Sidebar activePage="Scans" />
@@ -451,28 +462,21 @@ export default function ResultsPage() {
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         
         {/* Custom Header Bar */}
-        <header className="h-16 border-b border-border-warm bg-white flex items-center justify-between px-8 sticky top-0 z-20 flex-shrink-0">
+        <header className="h-16 border-b border-border-warm bg-bg-primary flex items-center justify-between px-8 sticky top-0 z-20 flex-shrink-0">
           <div className="text-left">
-            <div className="text-body-sm text-text-muted flex items-center gap-1">
-              <Link to="/scans" className="hover:text-text-primary transition-colors">Scans</Link>
-              <span>&gt;</span>
-              <Link to={`/scan/${id}/progress`} className="hover:text-text-primary transition-colors">Scan Details</Link>
-              <span>&gt;</span>
-              <span className="text-text-primary font-semibold">Results</span>
-            </div>
-            <h1 className="text-base font-bold text-text-primary mt-0.5" style={{ fontFamily: 'var(--font-heading)' }}>
-              Scan Results
-            </h1>
+            <Link to="/scans" className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors flex items-center gap-1.5 select-none">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to scanned list
+            </Link>
           </div>
 
           <div className="flex items-center gap-4">
             
             {/* Download Report Dropdown */}
             <div className="relative group">
-              <button className="px-3.5 py-1.5 bg-white border border-border-warm text-text-secondary hover:bg-bg-primary text-body-sm font-medium font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer">
-                <span>📥</span> Download Report <span className="text-body-xs opacity-75">▼</span>
+              <button className="px-3.5 py-1.5 bg-bg-secondary border border-border text-text-primary hover:bg-hover hover:text-text-primary text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                <Download className="w-3.5 h-3.5 text-text-muted" /> Download Report <span className="text-[10px] opacity-75">▼</span>
               </button>
-              <div className="absolute right-0 mt-1 w-40 bg-white border border-border-warm shadow-panel py-1.5 rounded-xl text-body-sm font-medium font-semibold text-text-primary hidden group-hover:block z-50">
+              <div className="absolute right-0 mt-1 w-40 bg-bg-primary border border-border-warm shadow-panel py-1.5 rounded-xl text-body-sm font-medium font-semibold text-text-primary hidden group-hover:block z-50">
                 <button onClick={() => alert('Downloading PDF Executive summary report...')} className="w-full text-left px-4 py-2 hover:bg-bg-secondary transition-colors">PDF Summary Report</button>
                 <button onClick={() => alert('Downloading PDF technical report...')} className="w-full text-left px-4 py-2 hover:bg-bg-secondary transition-colors">PDF Detailed Technical</button>
                 <button onClick={() => alert('Downloading CSV list...')} className="w-full text-left px-4 py-2 hover:bg-bg-secondary transition-colors">CSV Table Export</button>
@@ -481,10 +485,10 @@ export default function ResultsPage() {
 
             {/* Export Dropdown */}
             <div className="relative group">
-              <button className="px-3.5 py-1.5 bg-white border border-border-warm text-text-secondary hover:bg-bg-primary text-body-sm font-medium font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer">
-                <span>📤</span> Export <span className="text-body-xs opacity-75">▼</span>
+              <button className="px-3.5 py-1.5 bg-bg-secondary border border-border text-text-primary hover:bg-hover hover:text-text-primary text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                <FileJson className="w-3.5 h-3.5 text-text-muted" /> Export <span className="text-[10px] opacity-75">▼</span>
               </button>
-              <div className="absolute right-0 mt-1 w-36 bg-white border border-border-warm shadow-panel py-1.5 rounded-xl text-body-sm font-medium font-semibold text-text-primary hidden group-hover:block z-50">
+              <div className="absolute right-0 mt-1 w-36 bg-bg-primary border border-border-warm shadow-panel py-1.5 rounded-xl text-body-sm font-medium font-semibold text-text-primary hidden group-hover:block z-50">
                 <button onClick={() => alert('Exporting raw JSON...')} className="w-full text-left px-4 py-2 hover:bg-bg-secondary transition-colors">Raw JSON Payload</button>
                 <button onClick={() => alert('Exporting CSV...')} className="w-full text-left px-4 py-2 hover:bg-bg-secondary transition-colors">Normalized CSV</button>
               </div>
@@ -492,13 +496,10 @@ export default function ResultsPage() {
 
             {/* Share Button */}
             <button 
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                alert('Scan results URL copied to clipboard!');
-              }} 
-              className="px-3.5 py-1.5 bg-white border border-border-warm text-text-secondary hover:bg-bg-primary text-body-sm font-medium font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+              onClick={() => setShareModalOpen(true)} 
+              className="px-3.5 py-1.5 bg-bg-secondary border border-border text-text-primary hover:bg-hover hover:text-text-primary text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
             >
-              <span>🔗</span> Share
+              <Share2 className="w-3.5 h-3.5 text-text-muted" /> Share
             </button>
 
             {/* Divider line */}
@@ -506,12 +507,17 @@ export default function ResultsPage() {
 
             {/* User Profile */}
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-body-sm flex items-center justify-center border border-blue-500 shadow-sm select-none">
-                AD
+              <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase select-none flex-shrink-0"
+                   style={{ backgroundColor: 'var(--color-accent-subtle)', border: '1.5px solid var(--color-accent)', color: 'var(--color-accent-dark)' }}>
+                {initials}
               </div>
-              <div className="text-left text-body-sm font-medium leading-tight hidden md:block">
-                <p className="font-bold text-text-primary">Admin Administrator</p>
-                <p className="text-body-xs font-medium text-text-muted uppercase tracking-wider font-bold">Administrator</p>
+              <div className="text-left leading-tight hidden sm:block">
+                <p className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                  {user?.fullName ?? 'John Doe'}
+                </p>
+                <p className="text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  {user?.companyName ?? 'Acme Corp'}
+                </p>
               </div>
             </div>
 
@@ -522,7 +528,7 @@ export default function ResultsPage() {
         <div className="flex-1 overflow-y-auto p-8 space-y-6">
 
           {/* 1. Target Details Card */}
-          <div className="bg-white p-6 rounded-3xl border border-border-warm shadow-sm flex flex-col lg:flex-row justify-between gap-6">
+          <div className="bg-bg-primary p-6 rounded-3xl border border-border-warm shadow-sm flex flex-col lg:flex-row justify-between gap-6">
             
             {/* Target Address information details */}
             <div className="space-y-3.5">
@@ -545,7 +551,7 @@ export default function ResultsPage() {
                 <span className="text-body-xs font-medium font-bold uppercase tracking-wider bg-bg-secondary px-2.5 py-1 border border-border-warm rounded-full text-text-secondary select-none">
                   Target Type: Website
                 </span>
-                <span className="text-body-sm font-mono font-medium text-text-muted bg-[#FAFAF7] border border-border-warm px-3 py-1 rounded-full flex items-center gap-1.5">
+                <span className="text-body-sm font-mono font-medium text-text-muted bg-bg-primary border border-border-warm px-3 py-1 rounded-full flex items-center gap-1.5">
                   Scan ID: <strong className="text-text-primary font-bold">{id}</strong>
                 </span>
               </div>
@@ -556,7 +562,7 @@ export default function ResultsPage() {
               
               <div>
                 <p className="text-body-xs uppercase tracking-wider font-bold text-text-muted">Status</p>
-                <span className="inline-block mt-1 px-2.5 py-1 bg-green-50 border border-green-200 text-green-700 font-bold uppercase text-body-xs font-medium rounded-full select-none">
+                <span className="inline-block mt-1 px-2.5 py-1 bg-success-bg border border-border text-text-primary font-bold uppercase text-body-xs font-medium rounded-full select-none">
                   Completed
                 </span>
               </div>
@@ -589,7 +595,7 @@ export default function ResultsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Card 1: Security Posture */}
-            <div className="bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[340px] text-left lg:col-span-2">
+            <div className="bg-bg-primary p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between h-[340px] text-left lg:col-span-2">
               <p className="text-body-sm font-bold text-text-primary uppercase tracking-wider mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Security Posture</p>
               
               <div className="flex flex-col md:flex-row items-center justify-between gap-6 flex-1">
@@ -616,7 +622,7 @@ export default function ResultsPage() {
                         <span>Confidence</span>
                         <div className="group relative">
                           <Info className="w-3 h-3 text-text-muted cursor-help" />
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 w-48 bg-text-primary text-white text-[10px] p-2 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 w-48 bg-text-primary text-text-primary text-[10px] p-2 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
                             Measures scan reliability based on scanner types and vulnerability validations.
                           </div>
                         </div>
@@ -651,7 +657,7 @@ export default function ResultsPage() {
                   <div className="space-y-1.5 text-[11px] text-text-secondary font-semibold">
                     <div className="flex items-center justify-between border-b border-border-warm/40 pb-0.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-danger-bg0 animate-pulse" />
                         <span>Critical Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.CRITICAL}</span>
@@ -672,7 +678,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="flex items-center justify-between border-b border-border-warm/40 pb-0.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-info-bg0" />
                         <span>Low Findings</span>
                       </div>
                       <span className="font-bold text-text-primary">{stats.LOW}</span>
@@ -689,14 +695,14 @@ export default function ResultsPage() {
               </div>
 
               {/* AI Summary alert panel box */}
-              <div className="mt-3.5 bg-green-50/50 border border-green-100 rounded-2xl p-3 flex items-center justify-between gap-4">
+              <div className="mt-3.5 bg-bg-secondary border border-border rounded-2xl p-3 flex items-center justify-between gap-4">
                 <div className="flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <Sparkles className="w-4 h-4 text-text-primary mt-0.5 flex-shrink-0" />
                   <div className="text-left">
-                    <p className="text-[11px] font-extrabold text-green-800 flex items-center gap-1">
+                    <p className="text-[11px] font-extrabold text-text-primary flex items-center gap-1">
                       AI Summary
                     </p>
-                    <p className="text-[11px] text-green-700 leading-snug font-semibold mt-0.5">
+                    <p className="text-[11px] text-text-secondary leading-snug font-semibold mt-0.5">
                       {aiSummaryText}
                     </p>
                   </div>
@@ -708,7 +714,7 @@ export default function ResultsPage() {
             <div className="flex flex-col gap-3.5 h-[340px] justify-between text-left lg:col-span-1">
               
               {/* Card 3: Scan Timeline */}
-              <div className="bg-white p-4 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between flex-1 min-h-0">
+              <div className="bg-bg-primary p-4 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between flex-1 min-h-0">
                 <p className="text-body-xs font-bold text-text-primary uppercase tracking-wider mb-1" style={{ fontFamily: 'var(--font-heading)' }}>Scan Timeline</p>
                 
                 {/* Stepper nodes timeline */}
@@ -718,7 +724,7 @@ export default function ResultsPage() {
                   
                   {/* Node 1: Queued */}
                   <div className="flex flex-col items-center text-center z-10 space-y-1">
-                    <div className="w-4.5 h-4.5 rounded-full bg-green-500 text-white flex items-center justify-center text-[9px] font-bold shadow-sm">
+                    <div className="w-4.5 h-4.5 rounded-full bg-success-bg0 text-text-primary flex items-center justify-center text-[9px] font-bold shadow-sm">
                       ✓
                     </div>
                     <div className="space-y-0.5">
@@ -729,7 +735,7 @@ export default function ResultsPage() {
 
                   {/* Node 2: Preparing */}
                   <div className="flex flex-col items-center text-center z-10 space-y-1">
-                    <div className="w-4.5 h-4.5 rounded-full bg-green-500 text-white flex items-center justify-center text-[9px] font-bold shadow-sm">
+                    <div className="w-4.5 h-4.5 rounded-full bg-success-bg0 text-text-primary flex items-center justify-center text-[9px] font-bold shadow-sm">
                       ✓
                     </div>
                     <div className="space-y-0.5">
@@ -740,7 +746,7 @@ export default function ResultsPage() {
 
                   {/* Node 3: Running */}
                   <div className="flex flex-col items-center text-center z-10 space-y-1">
-                    <div className="w-4.5 h-4.5 rounded-full bg-green-500 text-white flex items-center justify-center text-[9px] font-bold shadow-sm">
+                    <div className="w-4.5 h-4.5 rounded-full bg-success-bg0 text-text-primary flex items-center justify-center text-[9px] font-bold shadow-sm">
                       ✓
                     </div>
                     <div className="space-y-0.5">
@@ -751,7 +757,7 @@ export default function ResultsPage() {
 
                   {/* Node 4: Completed */}
                   <div className="flex flex-col items-center text-center z-10 space-y-1">
-                    <div className="w-4.5 h-4.5 rounded-full bg-green-500 text-white flex items-center justify-center text-[9px] font-bold shadow-sm">
+                    <div className="w-4.5 h-4.5 rounded-full bg-success-bg0 text-text-primary flex items-center justify-center text-[9px] font-bold shadow-sm">
                       ✓
                     </div>
                     <div className="space-y-0.5">
@@ -764,7 +770,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Card 4: Target Information (Cleaned: tabular key-value design with border alignment) */}
-              <div className="bg-white p-4 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between flex-1 min-h-0">
+              <div className="bg-bg-primary p-4 rounded-3xl border border-border-warm shadow-sm flex flex-col justify-between flex-1 min-h-0">
                 <p className="text-body-xs font-bold text-text-primary uppercase tracking-wider mb-1.5" style={{ fontFamily: 'var(--font-heading)' }}>Target Information</p>
                 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-0 text-body-xs leading-tight font-semibold text-text-secondary flex-1">
@@ -812,10 +818,10 @@ export default function ResultsPage() {
           <div className="grid grid-cols-12 gap-6 items-stretch h-[560px]">
             
             {/* Left sidebar: modules selector */}
-            <div className="col-span-12 lg:col-span-3 bg-white p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="col-span-12 lg:col-span-3 bg-bg-primary p-5 rounded-3xl border border-border-warm shadow-sm flex flex-col h-full overflow-hidden">
               <div className="flex items-center justify-between border-b border-border-warm pb-3 flex-shrink-0">
                 <h3 className="text-xs font-extrabold text-text-primary uppercase tracking-wider">Modules</h3>
-                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 font-bold font-mono text-body-xs font-medium rounded-full">
+                <span className="px-2 py-0.5 bg-info-bg text-info font-bold font-mono text-body-xs font-medium rounded-full">
                   {modulesState.filter(m => m.isSelected).length} active
                 </span>
               </div>
@@ -829,7 +835,7 @@ export default function ResultsPage() {
                   }}
                   className={`w-full p-2.5 rounded-xl text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
                     selectedModule === 'ALL'
-                      ? 'bg-blue-50/50 text-blue-700 border border-blue-200'
+                      ? 'bg-info-bg/50 text-text-primary border border-border'
                       : 'bg-transparent text-text-primary hover:bg-bg-primary border border-transparent'
                   }`}
                 >
@@ -854,7 +860,7 @@ export default function ResultsPage() {
                       !mod.isSelected
                         ? 'opacity-40 bg-bg-secondary text-text-muted border-transparent cursor-not-allowed select-none'
                         : selectedModule === mod.id
-                        ? 'bg-blue-50/50 text-blue-700 border-blue-200 font-bold'
+                        ? 'bg-info-bg/50 text-text-primary border-border font-bold'
                         : 'bg-transparent text-text-secondary hover:bg-bg-primary border-transparent hover:text-text-primary font-semibold'
                     }`}
                   >
@@ -869,7 +875,7 @@ export default function ResultsPage() {
                       ) : (
                         <>
                           <span className={`w-1.5 h-1.5 rounded-full ${
-                            mod.status === 'COMPLETED' ? 'bg-green-500' : 'bg-red-500'
+                            mod.status === 'COMPLETED' ? 'bg-success-bg0' : 'bg-danger-bg0'
                           }`} />
                           <span className="font-mono font-bold text-body-sm">
                             {mod.findingsCount}
@@ -884,7 +890,7 @@ export default function ResultsPage() {
               <div className="pt-3 border-t border-border-warm flex justify-center flex-shrink-0 mt-2">
                 <button 
                   onClick={() => setSelectedModule('ALL')} 
-                  className="text-body-sm font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                  className="text-body-sm font-bold text-info hover:text-info cursor-pointer"
                 >
                   Show all modules
                 </button>
@@ -900,12 +906,12 @@ export default function ResultsPage() {
                 {/* Severity Tabs */}
                 <div className="flex flex-wrap -mb-px">
                   {[
-                    { id: 'ALL', label: 'All Findings', count: stats.total, style: 'border-blue-600 text-blue-700' },
-                    { id: 'CRITICAL', label: 'Critical', count: stats.CRITICAL, style: 'border-red-600 text-red-700' },
-                    { id: 'HIGH', label: 'High', count: stats.HIGH, style: 'border-orange-600 text-orange-700' },
+                    { id: 'ALL', label: 'All Findings', count: stats.total, style: 'border-blue-600 text-info' },
+                    { id: 'CRITICAL', label: 'Critical', count: stats.CRITICAL, style: 'border-red-600 text-danger' },
+                    { id: 'HIGH', label: 'High', count: stats.HIGH, style: 'border-orange-600 text-warning' },
                     { id: 'MEDIUM', label: 'Medium', count: stats.MEDIUM, style: 'border-yellow-600 text-yellow-700' },
-                    { id: 'LOW', label: 'Low', count: stats.LOW, style: 'border-blue-600 text-blue-700' },
-                    { id: 'INFO', label: 'Info', count: stats.INFO, style: 'border-slate-500 text-slate-700' }
+                    { id: 'LOW', label: 'Low', count: stats.LOW, style: 'border-blue-600 text-info' },
+                    { id: 'INFO', label: 'Info', count: stats.INFO, style: 'border-border-warm0 text-text-secondary' }
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -937,13 +943,13 @@ export default function ResultsPage() {
                         setSearchQuery(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="w-full pl-7 pr-3 py-1.5 bg-white border border-border-warm rounded-xl text-body-sm font-medium focus:outline-none placeholder:text-text-muted"
+                      className="w-full pl-7 pr-3 py-1.5 bg-bg-primary border border-border-warm rounded-xl text-body-sm font-medium focus:outline-none placeholder:text-text-muted"
                     />
                   </div>
-                  <button className="px-3 py-1.5 bg-white border border-border-warm text-text-secondary text-body-sm font-semibold rounded-xl hover:bg-bg-primary transition-colors cursor-pointer flex items-center gap-1">
+                  <button className="px-3 py-1.5 bg-bg-primary border border-border-warm text-text-secondary text-body-sm font-semibold rounded-xl hover:bg-bg-primary transition-colors cursor-pointer flex items-center gap-1">
                     <span>🎛️</span> Filters
                   </button>
-                  <button className="px-3 py-1.5 bg-white border border-border-warm text-text-secondary text-body-sm font-semibold rounded-xl hover:bg-bg-primary transition-colors cursor-pointer flex items-center gap-1">
+                  <button className="px-3 py-1.5 bg-bg-primary border border-border-warm text-text-secondary text-body-sm font-semibold rounded-xl hover:bg-bg-primary transition-colors cursor-pointer flex items-center gap-1">
                     <span>⚙️</span> Columns
                   </button>
                 </div>
@@ -951,7 +957,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Findings Card wrapper with fixed height alignment */}
-              <div className="flex-1 bg-white border border-border-warm rounded-3xl shadow-sm flex flex-col overflow-hidden min-h-0">
+              <div className="flex-1 bg-bg-primary border border-border-warm rounded-3xl shadow-sm flex flex-col overflow-hidden min-h-0">
                 
                 {/* Headers */}
                 <div className="grid grid-cols-12 gap-4 px-6 py-3.5 bg-bg-secondary/40 text-text-muted font-bold uppercase tracking-wider text-body-sm flex-shrink-0 border-b border-border-warm">
@@ -1003,7 +1009,7 @@ export default function ResultsPage() {
 
                           {/* Action Chevron */}
                           <div className="col-span-1 flex items-center justify-end text-right font-bold text-text-muted">
-                            <span className="px-2 py-1 rounded border border-border-warm bg-white text-[10px] text-text-secondary hover:bg-bg-primary hover:text-text-primary transition-all shadow-xs">
+                            <span className="px-2 py-1 rounded border border-border-warm bg-bg-primary text-[10px] text-text-secondary hover:bg-bg-primary hover:text-text-primary transition-all shadow-xs">
                               Details →
                             </span>
                           </div>
@@ -1035,7 +1041,7 @@ export default function ResultsPage() {
                             setItemsPerPage(Number(e.target.value));
                             setCurrentPage(1);
                           }}
-                          className="bg-white border border-border-warm px-2 py-1 rounded-lg text-body-sm focus:outline-none"
+                          className="bg-bg-primary border border-border-warm px-2 py-1 rounded-lg text-body-sm focus:outline-none"
                         >
                           {[5, 10, 20, 50].map(sz => (
                             <option key={sz} value={sz}>{sz} / page</option>
@@ -1048,7 +1054,7 @@ export default function ResultsPage() {
                         <button 
                           disabled={currentPage === 1}
                           onClick={() => setCurrentPage(currentPage - 1)}
-                          className="w-7 h-7 rounded-lg border border-border-warm bg-white hover:bg-bg-primary text-text-secondary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          className="w-7 h-7 rounded-lg border border-border-warm bg-bg-primary hover:bg-bg-primary text-text-secondary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           ◀
                         </button>
@@ -1059,8 +1065,8 @@ export default function ResultsPage() {
                             onClick={() => setCurrentPage(i + 1)}
                             className={`w-7 h-7 rounded-lg border flex items-center justify-center cursor-pointer transition-colors text-body-sm ${
                               currentPage === i + 1
-                                ? 'bg-blue-600 border-blue-700 text-white font-bold'
-                                : 'bg-white border-border-warm hover:bg-bg-primary text-text-secondary font-bold'
+                                ? 'bg-blue-600 border-blue-700 text-text-primary font-bold'
+                                : 'bg-bg-primary border-border-warm hover:bg-bg-primary text-text-secondary font-bold'
                             }`}
                           >
                             {i + 1}
@@ -1070,7 +1076,7 @@ export default function ResultsPage() {
                         <button 
                           disabled={currentPage === totalPages}
                           onClick={() => setCurrentPage(currentPage + 1)}
-                          className="w-7 h-7 rounded-lg border border-border-warm bg-white hover:bg-bg-primary text-text-secondary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          className="w-7 h-7 rounded-lg border border-border-warm bg-bg-primary hover:bg-bg-primary text-text-secondary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           ▶
                         </button>
@@ -1099,7 +1105,7 @@ export default function ResultsPage() {
           />
           
           {/* Drawer Container Panel */}
-          <div className="fixed top-0 right-0 h-full w-[450px] sm:w-[500px] md:w-[600px] bg-white border-l border-border-warm shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="fixed top-0 right-0 h-full w-[450px] sm:w-[500px] md:w-[600px] bg-bg-primary border-l border-border-warm shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
             
             {/* Drawer Header */}
             <div className="p-6 border-b border-border-warm flex items-start justify-between flex-shrink-0">
@@ -1111,7 +1117,7 @@ export default function ResultsPage() {
                   {selectedFinding.title}
                 </h3>
                 <p className="text-body-xs font-semibold text-text-muted">
-                  Module: <span className="text-text-primary font-bold">{systemModules.find(m => m.id === selectedFinding.module)?.label || selectedFinding.module}</span> | Category: <span className="text-text-primary font-bold text-slate-500">{selectedFinding.category || 'Security check'}</span>
+                  Module: <span className="text-text-primary font-bold">{systemModules.find(m => m.id === selectedFinding.module)?.label || selectedFinding.module}</span> | Category: <span className="text-text-primary font-bold text-text-muted">{selectedFinding.category || 'Security check'}</span>
                 </p>
               </div>
               <button 
@@ -1131,7 +1137,7 @@ export default function ResultsPage() {
                 <div className="flex items-center gap-2 border-b border-border-warm pb-2">
                   <span>📋</span>
                   <h4 className="text-body-xs font-extrabold text-text-primary uppercase tracking-wider">Technical Findings</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase bg-slate-100 text-slate-600 select-none">
+                  <span className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase bg-bg-muted text-text-secondary select-none">
                     Verified Scanner Data
                   </span>
                 </div>
@@ -1197,11 +1203,11 @@ export default function ResultsPage() {
                         return listTechs.map((techName, idx) => {
                           const logoUrl = getTechLogo(techName);
                           return (
-                            <div key={idx} className="bg-white border border-border-warm p-3.5 rounded-2xl flex items-center gap-2.5 shadow-sm">
+                            <div key={idx} className="bg-bg-primary border border-border-warm p-3.5 rounded-2xl flex items-center gap-2.5 shadow-sm">
                               {logoUrl ? (
                                 <img src={logoUrl} className="w-6 h-6 object-contain" alt={techName} />
                               ) : (
-                                <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-body-xs font-bold text-text-muted select-none">
+                                <span className="w-6 h-6 rounded-full bg-bg-muted flex items-center justify-center text-body-xs font-bold text-text-muted select-none">
                                   {techName.charAt(0).toUpperCase()}
                                 </span>
                               )}
@@ -1220,8 +1226,8 @@ export default function ResultsPage() {
                 {/* 3. AFFECTED RESOURCE */}
                 <div className="space-y-2">
                   <p className="text-body-xs font-extrabold text-text-muted uppercase tracking-wider">Affected Resource</p>
-                  <div className="p-3.5 bg-white border border-border-warm rounded-2xl flex items-center gap-3 shadow-xs">
-                    <span className="w-8 h-8 rounded-full bg-slate-50 border border-border-warm flex items-center justify-center text-base text-text-muted select-none">🌐</span>
+                  <div className="p-3.5 bg-bg-primary border border-border-warm rounded-2xl flex items-center gap-3 shadow-xs">
+                    <span className="w-8 h-8 rounded-full bg-bg-secondary border border-border-warm flex items-center justify-center text-base text-text-muted select-none">🌐</span>
                     <div className="text-left leading-normal font-semibold min-w-0 flex-1">
                       <p className="text-body-sm text-text-primary font-mono truncate select-all" title={scan?.targetUrl}>
                         {scan?.targetUrl}
@@ -1238,7 +1244,7 @@ export default function ResultsPage() {
                   <div className="space-y-2">
                     <p className="text-body-xs font-extrabold text-text-muted uppercase tracking-wider">Evidence / Proof</p>
                     <div className="relative group">
-                      <pre className="p-4 bg-slate-900 text-[#F8F8F2] border border-slate-800 rounded-xl font-mono text-[10px] leading-relaxed overflow-x-auto whitespace-pre-wrap text-left shadow-inner">
+                      <pre className="p-4 bg-bg-muted text-text-primary border border-border rounded-xl font-mono text-[10px] leading-relaxed overflow-x-auto whitespace-pre-wrap text-left shadow-inner">
                         {selectedFinding.evidence}
                       </pre>
                     </div>
@@ -1283,7 +1289,7 @@ export default function ResultsPage() {
                                 href={ref} 
                                 target="_blank" 
                                 rel="noreferrer" 
-                                className="px-3.5 py-2 bg-white border border-border-warm hover:bg-bg-primary hover:text-blue-600 transition-colors text-body-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm"
+                                className="px-3.5 py-2 bg-bg-primary border border-border-warm hover:bg-bg-primary hover:text-info transition-colors text-body-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm"
                               >
                                 <span>{info.icon}</span>
                                 <span className="truncate max-w-[120px]">{info.label}</span>
@@ -1293,10 +1299,10 @@ export default function ResultsPage() {
                         } catch {
                           return (
                             <>
-                              <a href="https://owasp.org" target="_blank" rel="noreferrer" className="px-3.5 py-2 bg-white border border-border-warm hover:bg-bg-primary text-body-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm">
+                              <a href="https://owasp.org" target="_blank" rel="noreferrer" className="px-3.5 py-2 bg-bg-primary border border-border-warm hover:bg-bg-primary text-body-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm">
                                 <span>🛡️</span> <span>OWASP</span>
                               </a>
-                              <a href="https://nist.gov" target="_blank" rel="noreferrer" className="px-3.5 py-2 bg-white border border-border-warm hover:bg-bg-primary text-body-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm">
+                              <a href="https://nist.gov" target="_blank" rel="noreferrer" className="px-3.5 py-2 bg-bg-primary border border-border-warm hover:bg-bg-primary text-body-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm">
                                 <span>🏛️</span> <span>NIST</span>
                               </a>
                             </>
@@ -1313,7 +1319,7 @@ export default function ResultsPage() {
                   return (
                     <div className="space-y-2">
                       <p className="text-body-xs font-extrabold text-text-muted uppercase tracking-wider">Scanner Details</p>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 bg-[#FAFAF7] border border-border-warm rounded-2xl p-4 text-body-xs font-bold text-text-secondary select-none">
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 bg-bg-primary border border-border-warm rounded-2xl p-4 text-body-xs font-bold text-text-secondary select-none">
                         <div className="flex justify-between border-b border-border-warm/30 pb-1.5 min-w-0">
                           <span className="text-text-muted flex-shrink-0 mr-2">Tool</span>
                           <span className="text-text-primary font-mono truncate" title={selectedFinding.tool || 'N/A'}>
@@ -1362,7 +1368,7 @@ export default function ResultsPage() {
                         <span>📋</span>
                         <p className="text-body-xs font-extrabold text-text-muted uppercase tracking-wider">AI Executive Summary</p>
                       </div>
-                      <div className="p-4 bg-[#FAFAF7] border border-border-warm rounded-2xl">
+                      <div className="p-4 bg-bg-primary border border-border-warm rounded-2xl">
                         <div className="text-body-sm font-semibold text-text-secondary leading-relaxed">
                           {renderFormattedText(aiAnalysis.executiveSummary)}
                         </div>
@@ -1374,14 +1380,14 @@ export default function ResultsPage() {
                     </div>
 
                     {/* Priority & Risk Explanation (Merged into one clean, non-stretching card) */}
-                    <div className="p-4 bg-[#FAFAF7] border border-border-warm rounded-2xl text-left space-y-3.5">
+                    <div className="p-4 bg-bg-primary border border-border-warm rounded-2xl text-left space-y-3.5">
                       <div className="flex items-center justify-between border-b border-border-warm/40 pb-2">
                         <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Remediation Priority</span>
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase select-none ${
-                          aiAnalysis.priority === 'CRITICAL' ? 'bg-red-100 text-red-700 border border-red-200' :
-                          aiAnalysis.priority === 'HIGH' ? 'bg-orange-100 text-orange-700 border border-orange-250' :
-                          aiAnalysis.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                          'bg-blue-100 text-blue-700 border border-blue-200'
+                          aiAnalysis.priority === 'CRITICAL' ? 'bg-danger-bg text-text-primary border border-border' :
+                          aiAnalysis.priority === 'HIGH' ? 'bg-warning-bg text-text-primary border border-border' :
+                          aiAnalysis.priority === 'MEDIUM' ? 'bg-warning-bg text-text-primary border border-border' :
+                          'bg-info-bg text-text-primary border border-border'
                         }`}>
                           {aiAnalysis.priority}
                         </span>
@@ -1405,7 +1411,7 @@ export default function ResultsPage() {
                     {/* Attack Scenarios */}
                     <div className="space-y-2">
                       <p className="text-body-xs font-extrabold text-text-muted uppercase tracking-wider">Potential Attack Scenarios</p>
-                      <div className="p-4 bg-slate-50 border border-border-warm rounded-2xl">
+                      <div className="p-4 bg-bg-secondary border border-border-warm rounded-2xl">
                         <div className="text-body-xs text-text-secondary leading-relaxed font-medium italic">
                           {renderFormattedText(aiAnalysis.attackScenarios)}
                         </div>
@@ -1416,10 +1422,10 @@ export default function ResultsPage() {
                     {aiAnalysis.nextSteps && aiAnalysis.nextSteps.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-body-xs font-extrabold text-text-muted uppercase tracking-wider">Recommended Next Steps</p>
-                        <div className="p-4 bg-emerald-50/45 border border-emerald-100 rounded-2xl text-emerald-950 leading-relaxed font-semibold text-body-xs shadow-xs flex flex-col gap-2.5">
+                        <div className="p-4 bg-success-bg border border-border rounded-2xl text-text-primary leading-relaxed font-semibold text-body-xs shadow-xs flex flex-col gap-2.5">
                           {aiAnalysis.nextSteps.map((step: string, sIdx: number) => (
                             <div key={sIdx} className="flex items-start gap-2.5">
-                              <input type="checkbox" readOnly checked className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-default" />
+                              <input type="checkbox" readOnly checked className="mt-0.5 rounded text-success focus:ring-emerald-500 cursor-default" />
                               <span>{step}</span>
                             </div>
                           ))}
@@ -1436,6 +1442,174 @@ export default function ResultsPage() {
 
           </div>
         </>
+      )}
+
+      {/* ─── Share Modal ─ always at root level ─── */}
+      {shareModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4"
+          onClick={() => setShareModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-3xl overflow-hidden text-left"
+            style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid #EDE8E0', boxShadow: '0 24px 48px -8px rgba(60,40,10,0.22)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 flex items-center justify-between" style={{ borderBottom: '1px solid #EDE8E0', backgroundColor: '#F9F5EF' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FDF0DC', border: '1px solid #E8C98A' }}>
+                  <svg className="w-5 h-5" style={{ color: '#C4933F' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#1E1508' }}>Share Scan Results</p>
+                  <p className="text-[10px] font-medium mt-0.5" style={{ color: '#A89880' }}>Control who can view this report</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer text-xs"
+                style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F0EBE1')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2.5" style={{ color: 'var(--color-text-muted)' }}>Visibility</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['private', 'public'] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setSharePrivacy(opt)}
+                      className="p-3.5 rounded-2xl text-left transition-all cursor-pointer border-2"
+                      style={{ backgroundColor: sharePrivacy === opt ? '#FDF6E7' : '#F5F0E8', borderColor: sharePrivacy === opt ? '#C4933F' : '#E0D8CC' }}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {opt === 'private' ? (
+                          <svg className="w-4 h-4" style={{ color: sharePrivacy === 'private' ? '#C4933F' : '#8A7460' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" style={{ color: sharePrivacy === 'public' ? '#C4933F' : '#8A7460' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                          </svg>
+                        )}
+                        <span className="text-xs font-bold capitalize" style={{ color: sharePrivacy === opt ? '#A67C2E' : '#4A3828' }}>{opt}</span>
+                      </div>
+                      <p className="text-[10px] font-medium" style={{ color: '#A89880' }}>
+                        {opt === 'private' ? 'Only people with the link and permission can view' : 'Anyone with the link can view this report'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-muted)' }}>Share Link</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 px-3.5 py-2.5 rounded-xl font-mono text-xs truncate select-all" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                    {`${window.location.origin}/share/${scan?.shareToken || id}`}
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/share/${scan?.shareToken || id}`);
+                      setShareCopied(true);
+                      setTimeout(() => setShareCopied(false), 2000);
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0"
+                    style={{ backgroundColor: shareCopied ? '#E8F5E9' : '#C4933F', color: shareCopied ? '#2E7D32' : '#FFFFFF', border: shareCopied ? '1px solid #A5D6A7' : '1px solid #C4933F' }}
+                  >
+                    {shareCopied
+                      ? <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>Copied!</>
+                      : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>Copy Link</>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 p-3.5 rounded-2xl" style={{ backgroundColor: sharePrivacy === 'public' ? '#FFFBEB' : '#F5F0E8', border: `1px solid ${sharePrivacy === 'public' ? '#FDE68A' : '#E0D8CC'}` }}>
+                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: sharePrivacy === 'public' ? '#D97706' : '#8A7460' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                <p className="text-[11px] font-medium leading-relaxed" style={{ color: sharePrivacy === 'public' ? '#92400E' : '#6B5A3E' }}>
+                  {sharePrivacy === 'public'
+                    ? 'This report is publicly accessible. Anyone with the link can view findings without logging in.'
+                    : 'This report is private. Recipients must have a CipherLens account and be granted access to view it.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 pb-6 flex items-center justify-between" style={{ borderTop: '1px solid #EDE8E0', paddingTop: '16px' }}>
+              <div className="flex-1 text-left min-w-0 pr-4">
+                {isSavedSuccess && (
+                  <span className="text-xs font-bold text-success flex items-center gap-1 animate-pulse">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    Settings saved successfully!
+                  </span>
+                )}
+                {saveError && (
+                  <span className="text-xs font-bold text-rose-600 truncate block" title={saveError}>
+                    {saveError}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setShareModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#EDE8E0')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor='var(--color-bg-secondary)')}
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    if (id) {
+                      setSaveError(null);
+                      patchScan.mutate(
+                        { id, isPublic: sharePrivacy === 'public' },
+                        {
+                          onSuccess: () => {
+                            setIsSavedSuccess(true);
+                            setTimeout(() => setIsSavedSuccess(false), 3000);
+                          },
+                          onError: (err) => {
+                            setSaveError(err.message || 'Failed to save settings');
+                          }
+                        }
+                      );
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-text-primary transition-all cursor-pointer flex items-center gap-1.5"
+                  style={{ backgroundColor: '#C4933F', border: '1px solid #C4933F' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#A67C2E')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#C4933F')}
+                >
+                  {patchScan.isPending ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Saving...
+                    </>
+                  ) : 'Save Settings'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

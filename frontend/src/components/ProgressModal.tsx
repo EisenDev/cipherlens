@@ -51,7 +51,7 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="relative w-full max-w-xl bg-white rounded-3xl border border-border-warm shadow-xl z-10 overflow-hidden flex flex-col max-h-[85vh]"
+            className="relative w-full max-w-xl bg-bg-primary rounded-3xl border border-border-warm shadow-xl z-10 overflow-hidden flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="px-6 py-5 border-b border-border-warm flex justify-between items-center bg-bg-primary">
@@ -65,7 +65,7 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full border border-border-warm bg-white hover:bg-bg-primary text-text-muted hover:text-text-primary flex items-center justify-center cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-full border border-border-warm bg-bg-primary hover:bg-bg-primary text-text-muted hover:text-text-primary flex items-center justify-center cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -110,7 +110,7 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
                         <div
                           className={`h-full transition-all duration-500 rounded-full ${
                             mod.status === 'COMPLETED' ? 'bg-emerald-600' :
-                            mod.status === 'RUNNING' ? 'bg-blue-500 animate-pulse' :
+                            mod.status === 'RUNNING' ? 'bg-info-bg0 animate-pulse' :
                             mod.status === 'FAILED' ? 'bg-red-600' : 'bg-transparent'
                           }`}
                           style={{ width: `${mod.progress}%` }}
@@ -119,9 +119,9 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
                       
                       {/* Status indicator */}
                       <div className="w-16 text-right select-none font-semibold font-mono">
-                        {mod.status === 'COMPLETED' && <span className="text-emerald-700">Done</span>}
-                        {mod.status === 'RUNNING' && <span className="text-blue-600">{mod.progress}%</span>}
-                        {mod.status === 'FAILED' && <span className="text-red-700">Failed</span>}
+                        {mod.status === 'COMPLETED' && <span className="text-success">Done</span>}
+                        {mod.status === 'RUNNING' && <span className="text-info">{mod.progress}%</span>}
+                        {mod.status === 'FAILED' && <span className="text-danger">Failed</span>}
                         {mod.status === 'WAITING' && <span className="text-text-muted">Waiting</span>}
                       </div>
                     </div>
@@ -131,7 +131,7 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
 
               {/* Execution Info */}
               {progress?.currentlyExecuting && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-[10px] font-medium animate-pulse">
+                <div className="p-3 bg-info-bg border border-info/30 rounded-xl text-blue-800 text-[10px] font-medium animate-pulse">
                   ⚡ Currently executing: <span className="font-bold">{progress.currentlyExecuting}</span>
                 </div>
               )}
@@ -141,17 +141,17 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
                 <h4 className="text-[10px] font-bold text-text-primary uppercase tracking-wider mb-2 select-none">
                   Live execution logs
                 </h4>
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 h-48 overflow-y-auto font-mono text-[9px] text-slate-350 space-y-1.5 leading-relaxed shadow-inner">
+                <div className="bg-bg-muted border border-border rounded-2xl p-4 h-48 overflow-y-auto font-mono text-[9px] text-text-muted space-y-1.5 leading-relaxed shadow-inner">
                   {logsData?.logs.map((log, i) => {
                     const time = new Date(log.timestamp).toLocaleTimeString('en-US', { hour12: false });
                     const levelColors = {
                       INFO: 'text-blue-400',
                       WARNING: 'text-amber-400',
-                      ERROR: 'text-red-500'
+                      ERROR: 'text-danger'
                     };
                     return (
                       <div key={i} className="flex gap-2.5 items-start">
-                        <span className="text-slate-500 select-none">[{time}]</span>
+                        <span className="text-text-muted select-none">[{time}]</span>
                         <span className={`font-bold select-none ${levelColors[log.level]}`}>
                           {log.level}
                         </span>
@@ -160,7 +160,7 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
                     );
                   })}
                   {(!logsData || logsData.logs.length === 0) && (
-                    <div className="text-slate-500 italic text-center py-12">No logs recorded yet.</div>
+                    <div className="text-text-muted italic text-center py-12">No logs recorded yet.</div>
                   )}
                   <div ref={logEndRef} />
                 </div>
@@ -171,7 +171,7 @@ export default function ProgressModal({ isOpen, scanId, onClose }: ProgressModal
             <div className="px-6 py-4 border-t border-border-warm flex justify-end bg-bg-primary">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-white border border-border-warm hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-bg-primary border border-border-warm hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
               >
                 Close Progress view
               </button>

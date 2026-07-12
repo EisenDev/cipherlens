@@ -38,12 +38,12 @@ export default function ErrorModal({ isOpen, scanId, onClose }: ErrorModalProps)
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="relative w-full max-w-xl bg-white rounded-3xl border border-border-warm shadow-xl z-10 overflow-hidden flex flex-col max-h-[85vh]"
+            className="relative w-full max-w-xl bg-bg-primary rounded-3xl border border-border-warm shadow-xl z-10 overflow-hidden flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="px-6 py-5 border-b border-border-warm flex justify-between items-center bg-bg-primary">
               <div>
-                <h3 className="text-sm font-bold text-red-700 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)' }}>
+                <h3 className="text-sm font-bold text-danger flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)' }}>
                   ⚠️ Scan Failure Report
                 </h3>
                 <p className="text-[9px] text-text-muted mt-1 select-none font-mono">
@@ -52,7 +52,7 @@ export default function ErrorModal({ isOpen, scanId, onClose }: ErrorModalProps)
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full border border-border-warm bg-white hover:bg-bg-primary text-text-muted hover:text-text-primary flex items-center justify-center cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-full border border-border-warm bg-bg-primary hover:bg-bg-primary text-text-muted hover:text-text-primary flex items-center justify-center cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -61,9 +61,9 @@ export default function ErrorModal({ isOpen, scanId, onClose }: ErrorModalProps)
             {/* Content Body */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
               {/* Failure Summary Panel */}
-              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-3">
+              <div className="p-4 bg-danger-bg border border-danger/30 rounded-2xl space-y-3">
                 <div>
-                  <p className="text-[9px] text-red-500 font-bold uppercase select-none tracking-wider">Failure Title</p>
+                  <p className="text-[9px] text-danger font-bold uppercase select-none tracking-wider">Failure Title</p>
                   <p className="text-xs font-bold text-red-950 mt-0.5">
                     Scanner Module Exception
                   </p>
@@ -71,21 +71,21 @@ export default function ErrorModal({ isOpen, scanId, onClose }: ErrorModalProps)
                 
                 <div className="grid grid-cols-2 gap-4 pt-1">
                   <div>
-                    <p className="text-[9px] text-red-500 font-bold uppercase select-none tracking-wider">Failed Module</p>
+                    <p className="text-[9px] text-danger font-bold uppercase select-none tracking-wider">Failed Module</p>
                     <p className="text-[10px] font-bold text-red-900 font-mono mt-0.5">
                       {failedModule?.name || 'OWASP'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[9px] text-red-500 font-bold uppercase select-none tracking-wider">Timestamp</p>
+                    <p className="text-[9px] text-danger font-bold uppercase select-none tracking-wider">Timestamp</p>
                     <p className="text-[10px] font-bold text-red-900 font-mono mt-0.5">
                       {formatTime(progress?.startedAt || null)}
                     </p>
                   </div>
                 </div>
 
-                <div className="border-t border-red-200/50 pt-2.5">
-                  <p className="text-[9px] text-red-500 font-bold uppercase select-none tracking-wider">Error Message</p>
+                <div className="border-t border-danger/30/50 pt-2.5">
+                  <p className="text-[9px] text-danger font-bold uppercase select-none tracking-wider">Error Message</p>
                   <p className="text-[10px] font-medium text-red-950 mt-1 leading-relaxed">
                     Connection timeout during port audit checking. Host socket rejected requests.
                   </p>
@@ -115,17 +115,17 @@ requests.exceptions.ConnectionTimeout: ConnectTimeoutError(MaxRetryError("Connec
                 <h4 className="text-[10px] font-bold text-text-primary uppercase tracking-wider mb-2 select-none">
                   Execution logs prior to failure
                 </h4>
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 h-40 overflow-y-auto font-mono text-[9px] text-slate-350 space-y-1.5 leading-relaxed shadow-inner">
+                <div className="bg-bg-muted border border-border rounded-2xl p-4 h-40 overflow-y-auto font-mono text-[9px] text-text-muted space-y-1.5 leading-relaxed shadow-inner">
                   {logsData?.logs.map((log, i) => {
                     const time = new Date(log.timestamp).toLocaleTimeString('en-US', { hour12: false });
                     const levelColors = {
                       INFO: 'text-blue-400',
                       WARNING: 'text-amber-400',
-                      ERROR: 'text-red-500'
+                      ERROR: 'text-danger'
                     };
                     return (
                       <div key={i} className="flex gap-2.5 items-start">
-                        <span className="text-slate-500 select-none">[{time}]</span>
+                        <span className="text-text-muted select-none">[{time}]</span>
                         <span className={`font-bold select-none ${levelColors[log.level]}`}>
                           {log.level}
                         </span>
@@ -141,7 +141,7 @@ requests.exceptions.ConnectionTimeout: ConnectTimeoutError(MaxRetryError("Connec
             <div className="px-6 py-4 border-t border-border-warm flex justify-end bg-bg-primary">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-white border border-border-warm hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-bg-primary border border-border-warm hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
               >
                 Close Failure report
               </button>

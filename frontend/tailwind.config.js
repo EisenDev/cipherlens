@@ -4,6 +4,8 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  // Dark mode is toggled via the 'data-theme="dark"' attribute on <html>
+  darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
@@ -12,45 +14,56 @@ export default {
         mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace'],
       },
       colors: {
+        // ── Semantic Token Colors (respond to theme via CSS vars) ──
+        // Use these in all components. Never use raw Tailwind palette colors
+        // (e.g., slate-800, gray-100) inside dashboard-scoped components.
+
         // Backgrounds
-        'bg-primary': '#FAFAF7',
-        'bg-secondary': '#F5F3EE',
-        'bg-card': '#FFFFFF',
-        'bg-muted': '#F0EDE6',
-        'bg-dark': '#1A1A1A',
+        'bg-primary':   'var(--color-bg-primary)',
+        'bg-secondary': 'var(--color-bg-secondary)',
+        'bg-card':      'var(--color-bg-card)',
+        'bg-muted':     'var(--color-bg-muted)',
+        'bg-elevated':  'var(--color-bg-elevated)',
+        'bg-dark':      'var(--color-bg-dark)',
 
         // Text
-        'text-primary': '#1A1A1A',
-        'text-secondary': '#6B6B6B',
-        'text-muted': '#9CA3AF',
-        'text-inverse': '#FFFFFF',
+        'text-primary':   'var(--color-text-primary)',
+        'text-secondary': 'var(--color-text-secondary)',
+        'text-muted':     'var(--color-text-muted)',
+        'text-inverse':   'var(--color-text-inverse)',
+        'text-accent':    'var(--color-text-accent)',
 
         // Accent (Muted Gold)
-        'accent': '#C4933F',
-        'accent-dark': '#A67C2E',
-        'accent-light': '#E8C98A',
-        'accent-subtle': '#FDF6E7',
+        'accent':        'var(--color-accent)',
+        'accent-dark':   'var(--color-accent-dark)',
+        'accent-light':  'var(--color-accent-light)',
+        'accent-subtle': 'var(--color-accent-subtle)',
 
         // Borders
-        'border-warm': '#E5E3DE',
-        'border-strong': '#D1CEC8',
-        'divider': '#EDEAE4',
+        'border':        'var(--color-border)',
+        'border-warm':   'var(--color-border)',
+        'border-strong': 'var(--color-border-strong)',
+        'divider':       'var(--color-divider)',
+
+        // Interactive
+        'hover':         'var(--color-hover)',
+        'hover-bg':      'var(--color-hover)',
 
         // Semantic
-        'success': '#52796F',
-        'success-bg': '#EBF4F1',
-        'warning': '#D97706',
-        'warning-bg': '#FEF3C7',
-        'danger': '#9B2335',
-        'danger-bg': '#FEE2E2',
-        'info': '#2B6CB0',
-        'info-bg': '#EBF4FF',
+        'success':    'var(--color-success)',
+        'success-bg': 'var(--color-success-bg)',
+        'warning':    'var(--color-warning)',
+        'warning-bg': 'var(--color-warning-bg)',
+        'danger':     'var(--color-danger)',
+        'danger-bg':  'var(--color-danger-bg)',
+        'info':       'var(--color-info)',
+        'info-bg':    'var(--color-info-bg)',
       },
       borderRadius: {
-        'sm': '4px',
-        'md': '8px',
-        'lg': '12px',
-        'xl': '16px',
+        'sm':  '4px',
+        'md':  '8px',
+        'lg':  '12px',
+        'xl':  '16px',
         '2xl': '24px',
       },
       boxShadow: {

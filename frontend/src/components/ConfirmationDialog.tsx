@@ -40,7 +40,7 @@ export default function ConfirmationDialog({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="relative w-full max-w-sm bg-white rounded-3xl border border-border-warm p-6 shadow-xl z-10"
+            className="relative w-full max-w-sm bg-bg-card rounded-3xl border border-border-warm p-6 shadow-xl z-10"
           >
             {/* Title */}
             <h3 
@@ -63,7 +63,7 @@ export default function ConfirmationDialog({
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-3.5 py-2 rounded-xl border border-border-warm bg-white hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-border-warm bg-bg-card hover:bg-bg-primary text-[10px] font-bold text-text-primary transition-colors cursor-pointer"
               >
                 {cancelLabel}
               </button>

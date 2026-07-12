@@ -19,6 +19,8 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   projects      Project[]
+  assets        assets[]
+  audit_logs    audit_logs[]
   refreshTokens RefreshToken[]
 
   @@map("users")
@@ -95,6 +97,147 @@ model Report {
   markdown  String
   createdAt DateTime @default(now())
   scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
+
+model assets {
+  id        String    @id @db.VarChar
+  name      String    @db.VarChar
+  url       String    @db.VarChar
+  type      String    @db.VarChar
+  userId    String    @db.VarChar
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @db.Timestamptz(6)
+  users     User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  scans     scans[]
+  tickets   tickets[]
+}
+
+model audit_logs {
+  id             String   @id @db.VarChar
+  userId         String   @db.VarChar
+  action         String   @db.VarChar
+  timestamp      DateTime @default(now()) @db.Timestamptz(6)
+  findingIds     String?
+  actionMetadata String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  users          User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model scan_jobs {
+  id        String   @id @db.VarChar
+  scanId    String   @db.VarChar
+  status    String   @db.VarChar
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @db.Timestamptz(6)
+  scans     scans    @relation(fields: [scanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model scan_logs {
+  id        String   @id @db.VarChar
+  scanId    String   @db.VarChar
+  logLevel  String   @db.VarChar
+  message   String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  scans     scans    @relation(fields: [scanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model scan_modules {
+  id        String   @id @db.VarChar
+  scanId    String   @db.VarChar
+  name      String   @db.VarChar
+  config    String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  status    String   @default("WAITING") @db.VarChar
+  duration  Int?
+  errors    String?
+  logs      String?
+  scans     scans    @relation(fields: [scanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model scan_results {
+  id           String    @id @db.VarChar
+  scanId       String    @db.VarChar
+  findingCode  String    @db.VarChar
+  title        String    @db.VarChar
+  severity     String    @db.VarChar
+  description  String
+  evidence     String
+  filePath     String?   @db.VarChar
+  lineNumber   Int?
+  remediation  String
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  module       String?   @db.VarChar
+  tool         String?   @db.VarChar
+  category     String?   @db.VarChar
+  references   String?
+  rawData      String?
+  status       String    @default("Open") @db.VarChar
+  cvss         String?
+  cve          String?   @db.VarChar
+  cwe          String?   @db.VarChar
+  notes        String?
+  assignedTo   String?   @db.VarChar
+  mitreAttack  String?   @db.VarChar
+  owaspMapping String?   @db.VarChar
+  resolvedAt   DateTime? @db.Timestamptz(6)
+  ticketId     String?   @db.VarChar
+  tags         String?   @db.VarChar
+  isArchived   Boolean   @default(false)
+  isDeleted    Boolean   @default(false)
+  scans        scans     @relation(fields: [scanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model scans {
+  id                 String         @id @db.VarChar
+  status             String         @db.VarChar
+  scanType           String         @db.VarChar
+  score              Int?
+  duration           Int?
+  scanName           String?        @db.VarChar
+  scanTags           String?        @db.VarChar
+  assetId            String         @db.VarChar
+  createdAt          DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime       @default(now()) @db.Timestamptz(6)
+  startedAt          DateTime?      @db.Timestamptz(6)
+  completedAt        DateTime?      @db.Timestamptz(6)
+  jobId              String?        @db.VarChar
+  currentModule      String?        @db.VarChar
+  progress           Int            @default(0)
+  coverage           Int?
+  confidence         Int?
+  security_posture   String?        @db.VarChar
+  recommendation     String?        @db.VarChar
+  summary            String?        @db.VarChar
+  generated_at       DateTime?      @db.Timestamptz(6)
+  processing_version String?        @db.VarChar
+  isPublic           Boolean        @default(false)
+  shareToken         String?        @unique(map: "uq_scans_share_token") @db.VarChar
+  scan_jobs          scan_jobs[]
+  scan_logs          scan_logs[]
+  scan_modules       scan_modules[]
+  scan_results       scan_results[]
+  assets             assets         @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tickets            tickets[]
+}
+
+model tickets {
+  id          String    @id @db.VarChar
+  title       String    @db.VarChar
+  description String
+  priority    String    @db.VarChar
+  severity    String    @db.VarChar
+  assignee    String?   @db.VarChar
+  dueDate     DateTime? @db.Timestamptz(6)
+  status      String    @db.VarChar
+  tags        String?   @db.VarChar
+  scanId      String?   @db.VarChar
+  assetId     String?   @db.VarChar
+  evidence    String?
+  scanner     String?   @db.VarChar
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @db.Timestamptz(6)
+  assets      assets?   @relation(fields: [assetId], references: [id], onUpdate: NoAction)
+  scans       scans?    @relation(fields: [scanId], references: [id], onUpdate: NoAction)
 }
 
 enum TargetType {

@@ -2,6 +2,75 @@
 
 This log records all completed tasks and their resolution history.
 
+## Phase 3.18: Global Layout Component Standardization (2026-07-10)
+
+* **Task-037: Phase 3.19 — Compliance Hub Coming Soon Integration**
+  - **Date Completed:** 2026-07-10
+  - **Resolution:** Replaced the interactive compliance pages with a clean, high-fidelity "Coming Soon" page matching the mockup specifications:
+    - **Landing Page Gold Accent**: Themed button actions, padlock lock colors, and badges using the gold accent color palette (`var(--color-accent)` / `#C4933F`) from the branding landing page.
+    - **4-Feature Grid Card & Illustration**: Rendered the central padlock-shield SVG illustration, a "COMING SOON" gold capsule, description paragraphs, and 4 feature items.
+    - **Notify Me Banner**: Added an email notification banner with a "Notify Me" interactive submit state.
+    - **Sidebar Soon Indicator**: Integrated a small blue `Soon` badge in the left-hand navigation list next to "Compliance".
+  - **Status:** Complete ✅
+
+* **Task-036: Phase 3.18 — Standardize Headings, Cards, and Font Sizes Across All Pages**
+  - **Date Completed:** 2026-07-10
+  - **Resolution:** Systematically refactored headings, cards, and typography layouts across the entire application interface to match the `/scans` design pivot page:
+    - **PageHeading Integration**: Unified headers with descriptions and action slot layouts in `FindingsPage.tsx`, `AIAnalysisPage.tsx`, and `ProgressPage.tsx`. Removed breadcrumb navigation and the "GENERATED" status badge from the AI Analysis page header.
+    - **Card Integration & Dashboard Pruning**: Converted all pages' panel boxes to unified `Card` styling. Extensively pruned redundant widgets on `AIAnalysisPage.tsx` to align the page strictly as a read-only executive overview:
+      - **Pruned Attack Surface, Correlation, and Trend widgets**: Completely removed charts, graphs, lists, and grids containing duplicate operational information.
+      - **Plain Language Trend Summary**: Plotted a dynamic status block inside the Executive Summary card summarizing scans comparison values in natural text.
+      - **Recommended Remediation Section**: Swapped the 4-phase timeline roadmap with a streamlined list containing the top 5 highest-priority remediation actions generated dynamically from findings.
+      - **Dynamic Compliance Metric Sizing**: Configured the 5 regulatory frameworks (OWASP Top 10, PCI DSS, NIST CSF, CIS Controls, ISO 27001) to compute scores dynamically based on scan severity counts.
+      - **Excised Modals & Links**: Removed all view detail buttons, modal layouts, and states to enforce a clean read-only summary environment.
+      - **AI Assistant Decommissioning**: Removed the floating AI Assistant messenger widget (`AIAssistantWidget.tsx`) from the frontend layout, and deleted the assistant's backend chat handler route (`/api/ai-analysis/{scan_id}/chat`) and response generators from the NestJS/FastAPI api services.
+    - **PagesFontSize Adoption**: Standardized title, description, content, filter, and badge font sizes across page layouts referencing typography styles in `PagesFontSize`.
+    - **Verification & Build validation**: Resolved JSX nesting issues, fixed unclosed tags, and cleaned up unused imports, ensuring a 100% clean production build.
+  - **Status:** Complete ✅
+
+## Phase 3.17: AI Security Analysis Dashboard Integration (2026-07-09)
+
+* **Task-035: Phase 3.17 (Extension II) — Premium AI Analysis Layout Redesign**
+  - **Date Completed:** 2026-07-10
+  - **Resolution:** Completely overhauled the layout of [AIAnalysisPage.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/pages/AIAnalysisPage.tsx) to match the premium 3-column middle section and 4-column bottom section layout:
+    - **Header Overview Breadcrumb**: Added breadcrumbs `AI Analysis > Overview` and stylized a premium badge header with action buttons on the right side.
+    - **Target Asset Dropdown**: Implemented target selection grouping with target icons, COMPLETED indicators, and date details.
+    - **Scan Journey Timeline**: Preserved the interactive chronological timeline linking all scans.
+    - **3-Column Middle Grid**: Implemented Executive Summary card with key details, a Top Priorities card showing 5 prioritized vulnerabilities with indices/cvss metrics, and a Risk Narrative card detailing compliance impact metrics for OWASP, PCI DSS, NIST, CIS, and ISO 27001.
+    - **4-Column Bottom Grid**: Implemented Attack Surface Overview (SVG donut chart of subdomain/port/tech ratios), Finding Correlation (by root cause counts), Phased Remediation Timeline, and Trend Analysis (net changes table and SVG Sparkline chart).
+    - **Icon Optimizations**: Integrated and reused `Lock`, `Flame`, `Database`, and `Info` icons to ensure the project compiles with no unused imports.
+    - **Font Sizing & Readability Upgrade**: Upgraded all tiny `text-[10px]`, `text-[9px]`, `text-[8px]`, and `text-[7px]` font size classes across all cards, descriptions, summaries, grids, lists, badges, and headers to highly readable standards (`text-sm` (14px) and `text-xs` (12px)), mirroring the clean, readable sizing structure of the Findings (Scan Results) page.
+  - **Status:** Complete ✅
+
+* **Task-034: Phase 3.17 (Extension) — Dynamic Security Posture Engine & AI Analysis Page KPI Redesign**
+  - **Date Completed:** 2026-07-10
+  - **Resolution:** Implemented a qualitative, data-driven security posture engine and completed the KPI redesign:
+    - **Backend Services**: Updated [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/services/ai_analysis.py) to calculate Security Posture (`Excellent`, `Good`, `Fair`, `Poor`, `Critical`) deterministically based on active, validated findings only (considering severity counts, exploitability CVSS values, and module concentration). Implemented dynamic calculations for Confidence rating/reason and Coverage proportion of completed vs. planned scanners.
+    - **React Frontend**: Rebuilt the top card row in [AIAnalysisPage.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/pages/AIAnalysisPage.tsx) to feature 6 distinct KPI cards: Security Posture, Confidence, Coverage, Critical Issues, Total Findings, and Most Exposed Area.
+    - **Timeline & UI Enhancements**: Replaced numerical risk score references in the Scan Journey Timeline with posture badges, removed the Attack Path Analysis card grid, and replaced hardcoded CIS/OWASP progress indicators with dynamic value bounds based on scan coverage.
+  - **Status:** Complete ✅
+
+* **Task-033: Phase 3.17 — Implement and Integrate AI Security Analysis Page**
+  - **Date Completed:** 2026-07-10
+  - **Resolution:** Designed and built a dynamic, production-ready AI Analysis platform mapping scan findings to security intelligence:
+    - **Backend Services**: Developed [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/services/ai_analysis.py) containing prompt structures and calculation systems (overall risk score, trending indices, prioritizations, compliance mapping, business impacts, correlation logic, roadmap phases, and chat assistant LLM templates). Fallbacks use `createdAt` when `completedAt` is `None` to prevent missing timestamp bugs. Resolved a `ports_list` NameError typo.
+    - **API Routes**: Created [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/api/routes/ai_analysis.py) route mappings supporting `/latest`, `/{scan_id}`, `/generate`, `/chat` assistant responses, and `/export` templates. Added strict multi-tenant checks joining the `Asset` table and ordering scans by `createdAt` descending.
+    - **React Frontend**: Built [AIAnalysisPage.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/pages/AIAnalysisPage.tsx) featuring a custom radial risk score dial, prioritized checklist card, compliance impact progress bars, attack roadmap timeline, attack surface counts. Removed the breadcrumb label header as requested.
+    - **Asset Grouping & Timeline**: Grouped scans by unique asset URLs in the top-right selection dropdown to eliminate duplicate items. Added a horizontal **Scan Journey Timeline** component linking all past scans for the selected asset in chronological order. Users can click any scan dot in the timeline to dynamically view its date, score, and AI report.
+    - **Floating AI Assistant**: Developed [AIAssistantWidget.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/components/AIAssistantWidget.tsx) as a floating bubble at the bottom-right of the viewport. Clicking it opens a Messenger-style slide-up chat drawer linked to the active scan or the latest completed scan, freeing up page grid layout space (which was expanded to full width). Integrated it globally inside [DashboardLayout.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/components/DashboardLayout.tsx).
+  - **Status:** Complete ✅
+
+## Phase 3.16: Export, Bulk Actions, and Create Ticket Integration (2026-07-09)
+
+* **Task-032: Phase 3.16 — Implement Export, Bulk Actions, and Ticket Creation**
+  - **Date Completed:** 2026-07-09
+  - **Resolution:** Fully implemented and integrated findings page operations:
+    - **Export**: Created `POST /api/findings/export` endpoint with support for CSV, JSON, Markdown, and HTML report formatting across All/Filtered/Selected/Current Page scopes. Connected it to the frontend via Base64 binary decoding to allow seamless downloads.
+    - **Bulk Actions**: Created `POST /api/findings/bulk` transactional router support for status changes, assignee ownership routing, adding/removing tags, archiving/unarchiving, and soft deletion. Wired it to the frontend with user confirmation warnings for delete and Accepted Risk.
+    - **Create Ticket**: Developed `POST /api/tickets` backend router and registered schema linkages. Created a modal in React to auto-gather finding code references, priority levels, raw scanner inputs, and technical evidence, writing actions to `tickets` and logging in `audit_logs`.
+    - **Click-Outside-Dismissal**: Integrated click-outside detection refs to dismiss the top action menus (Export, Bulk Actions) and bottom Filters card.
+  - **Status:** Complete ✅
+
 ## Phase 3.15: Enterprise Posture Multi-Dimensional Scoring (2026-07-09)
 
 * **Task-031: Phase 3.15 — [ENHANCEMENT-003] Multi-Dimensional Security Scoring Engine v3**

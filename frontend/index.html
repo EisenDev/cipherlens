@@ -6,6 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
   </head>
+  <!-- Theme bootstrap: runs synchronously before CSS/JS to prevent flash -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('cipherlens-theme');
+        var mode = stored ? (JSON.parse(stored).state?.mode ?? 'light') : 'light';
+        var resolved = mode === 'dark' ? 'dark'
+          : mode === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : 'light';
+        document.documentElement.setAttribute('data-theme', resolved);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

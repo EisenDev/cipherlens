@@ -40,7 +40,7 @@ export function LoginModal() {
 
       setAuth(data.user, data.accessToken);
       closeLoginModal();
-      navigate('/scans');
+      navigate('/overview');
     } catch (err: any) {
       setErrorMsg(err.message || 'An unexpected error occurred.');
     } finally {
@@ -67,7 +67,7 @@ export function LoginModal() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="relative z-10 w-full max-w-[420px] rounded-3xl bg-white p-8 border border-border-warm shadow-panel"
+            className="relative z-10 w-full max-w-[420px] rounded-3xl bg-bg-primary p-8 border border-border-warm shadow-panel"
           >
             {/* Close Button */}
             <button
@@ -97,8 +97,8 @@ export function LoginModal() {
             </div>
 
             {errorMsg && (
-              <div className="p-3 mb-4 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 flex items-start gap-2" style={{ fontFamily: 'var(--font-body)' }}>
-                <svg className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="p-3 mb-4 rounded-xl border border-danger/30 bg-danger-bg text-xs text-danger flex items-start gap-2" style={{ fontFamily: 'var(--font-body)' }}>
+                <svg className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <span>{errorMsg}</span>
@@ -127,7 +127,7 @@ export function LoginModal() {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-warm bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
                     style={{ fontFamily: 'var(--font-body)' }}
                   />
                 </div>
@@ -162,7 +162,7 @@ export function LoginModal() {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border-warm bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
                     style={{ fontFamily: 'var(--font-body)' }}
                   />
                   {/* Show/Hide eye button */}
@@ -192,7 +192,7 @@ export function LoginModal() {
                   id="remember-me"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent bg-white accent-accent cursor-pointer"
+                  className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent bg-bg-primary accent-accent cursor-pointer"
                 />
                 <label
                   htmlFor="remember-me"
@@ -231,7 +231,7 @@ export function LoginModal() {
             <div className="relative my-6 text-center">
               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-border-warm" />
               <span
-                className="relative z-10 px-3 bg-white text-[10px] font-bold text-text-muted uppercase tracking-widest"
+                className="relative z-10 px-3 bg-bg-primary text-[10px] font-bold text-text-muted uppercase tracking-widest"
                 style={{ fontFamily: 'var(--font-body)' }}
               >
                 or
@@ -243,7 +243,7 @@ export function LoginModal() {
               {/* GitHub */}
               <button
                 type="button"
-                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-white text-sm font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-sm font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
                 style={{ fontFamily: 'var(--font-body)' }}
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -255,7 +255,7 @@ export function LoginModal() {
               {/* Google */}
               <button
                 type="button"
-                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-white text-sm font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-border-warm bg-bg-primary text-sm font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
                 style={{ fontFamily: 'var(--font-body)' }}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">

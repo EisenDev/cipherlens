@@ -6,6 +6,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.19] - 2026-07-10
+
+### Fixed
+- **Shared Results UI Refinement**: Ensured the `/share/:token` Public Results page uses the exact same main table layout and Right Drawer as the authenticated view, while completely stripping out the side navigation, target metadata cards, and scan timeline blocks to keep the layout extremely clean for guest viewers.
+- **Owner-Only Results Access**: Enforced 404 errors for any direct unauthenticated or non-owner visits to `/scan/:id/results`, ensuring that users must use the unique `/share/:token` hashed URLs for public sharing.
+- **Global Loading Animation Consistency**: Replaced custom loading skeletons and custom spinners across `ScansPage.tsx` and `AIAnalysisPage.tsx` with the standardized gold ring `LoadingScreen` component used by the shared report, ensuring a consistent premium aesthetic.
+
+- **Compliance Coming Soon Page Placeholder**: Replaced the entire interactive compliance dashboard layouts, metrics calculations, list items, and modal dialogs with a high-fidelity "Coming Soon" placeholder page:
+  - *Mockup Fidelity*: Implemented the padlock-shield outline SVG illustration, "Coming Soon" pill badge, large headline, description, 4 coming features grid (Framework Mapping, Compliance Tracking, Evidence Management, Custom Reports), and a bottom "Notify Me" action card matching the mockup exactly.
+  - *Gold Theme Customization*: Customized all primary button highlights, gradients, badges, and the shield shackle SVG to use the CipherLens muted-gold accent palette (`#C4933F` / `var(--color-accent)`) matching the landing page.
+  - *Sidebar Indicator Integration*: Injected a small blue `Soon` capsule badge next to the Compliance link inside the Sidebar navigation list.
+- **Simplification of Executive Security Briefing**: Pruned duplicate and redundant widgets from `AIAnalysisPage.tsx` to restore the focus of the page on high-level interpretations rather than operational metrics:
+  - **Removed Attack Surface Overview**: Deleted the donut SVG chart and asset segment statistics.
+  - **Removed Finding Correlation**: Removed the root-cause analysis items list, merging plain language summaries instead.
+  - **Removed Trend Analysis**: Discarded sparkline graphs, line charts, and status grids.
+- **Recommended Remediation Section**: Swapped the timeline-based remediation roadmap with a streamlined list showing only the highest-impact actions dynamically compiled from the scan findings.
+- **Dynamic Compliance Sizing**: Refactored `Compliance Impact` progress bars to compute OWASP Top 10, PCI DSS, NIST CSF, CIS Controls, and ISO 27001 assessment alignment dynamically based on live severity counts instead of hardcoded percentages.
+- **Plain Language Trend Integration**: Integrated a clean status block within the Executive Summary comparing previous scan results in natural phrasing.
+- **Removed Navigation Linkages**: Removed all remaining buttons (View All, View Details, etc.) to keep the page completely read-only and clutter-free.
+
+### Removed
+- **Floating AI Assistant & Backend Router**: Decommissioned the chat security assistant bubble and related logic to preserve UI simplicity:
+  - Deleted the frontend widget file [AIAssistantWidget.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/components/AIAssistantWidget.tsx) and removed its rendering from [DashboardLayout.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/components/DashboardLayout.tsx).
+  - Deleted the chat security assistant backend router `/api/ai-analysis/{scan_id}/chat` from [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/api/routes/ai_analysis.py) and removed its response generator `generate_chat_response` from [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/services/ai_analysis.py).
+
+### Fixed
+- **ProgressPage JSX Typings**: Fixed a JSX syntax issue in `ProgressPage.tsx` where stats grid container closing tags were mismatched, ensuring clean TypeScript compiles.
+- **AIAnalysisPage Confidence Card JSX**: Fixed a tag balancing issue in the Confidence card of `AIAnalysisPage.tsx` by replacing the closing `div` tag with the correct `Card` tag.
+- **Clean Production Compilation**: Removed unused local imports of `PagesFontSize`, `PageHeading`, and Lucide icons in the edited pages to comply with strict TypeScript compiler options (`noUnusedLocals`).
+
+## [0.9.18] - 2026-07-10
+
+### Added
+- **AI Analysis Page Redesign**: Redesigned the main dashboard view to match the premium 3-column middle section layout (Executive Summary table, Priorities list, Risk Narrative & Compliance Impact) and the 4-column bottom section layout (Attack Surface SVG chart, Finding Correlation by root cause, Remediation Roadmap, Trend Analysis sparkline).
+- **Used Premium Icons Integration**: Mapped the imported `Lock`, `Flame`, `Database`, and `Info` icons inline across the dashboard panels (Attack Complexity, Remediation Time, Target Asset selector, and help tooltips) to ensure zero unused import/variable compile errors.
+
+### Fixed
+- **Lucide Icon Typings**: Wrapped Lucide `Info` icons inside standard `span` elements with HTML `title` attributes to resolve TypeScript type-checking errors for SVGs.
+- **Font Sizing Upgrades**: Upgraded all tiny, unreadable font classes (`text-[10px]`, `text-[9px]`, `text-[8px]`, `text-[7px]`) inside paragraphs, descriptions, metadata tags, cards, badges, and headers on the AI Analysis page to highly readable standards (`text-sm` (14px) and `text-xs` (12px)), aligning them perfectly with the Findings (Scan Results) page.
+
+## [0.9.17] - 2026-07-10
+
+### Added
+- **AI Analysis Page**: Implemented a comprehensive security consultant interpretation dashboard component ([AIAnalysisPage.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/pages/AIAnalysisPage.tsx)). Visualizes radial risk score gauges, risk level metrics, prioritized vulnerability lists, compliance impact bars, remediation roadmaps, and a fully interactive AI Security Assistant chat window.
+- **Scan Journey Timeline**: Developed a visual, horizontal chronological stepper component linking all past scans for the active asset URL. Allows toggling between historical scan nodes to view comparative date summaries and risk scores in real-time.
+- **Floating AI Assistant Widget**: Created [AIAssistantWidget.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/components/AIAssistantWidget.tsx) representing a slide-out security auditor bubble. Positions site-wide at the bottom-right corner (linked globally in [DashboardLayout.tsx](file:///home/eisen/projects/random-proj/CipherLens/frontend/src/components/DashboardLayout.tsx)) and defaults to active scan scope or latest scan summaries.
+- **Backend AI Report Service**: Developed [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/services/ai_analysis.py) service implementing LLM prompt generators, vulnerability correlations, business impact mappings, attack path templates, and chat assistant prompt contexts based on real findings.
+- **AI Analysis API Routes**: Registered endpoints (`/api/ai-analysis/latest`, `/{scan_id}`, `/generate`, `/chat`, and `/export`) in [ai_analysis.py](file:///home/eisen/projects/random-proj/CipherLens/backend/api/routes/ai_analysis.py), supporting dynamic JSON, Markdown, and HTML report exporting.
+
+### Fixed
+- **Dropdown duplicates**: Grouped completed scans list by unique target asset URLs inside the select menu dropdown.
+- **NameError Typo**: Resolved a backend runtime error caused by a typo referencing `ports_list` instead of `port_list` in the fallback report generator.
+- **Stuck Loading Screen**: Fixed a pagination object parsing bug inside `AIAnalysisPage.tsx` where the app checked for `res.items` rather than the standard paginated scans response key `res.data`. Configured limit param (`/api/scans?limit=100`) and fallback loader states on empty scans lists.
+- **Scan Sorting by Date**: Updated backend query ordering to sort by `createdAt` descending since completed scans in the database can have empty `completedAt` timestamps.
+- **Breadcrumbs Removal**: Removed the breadcrumb label `AI Analysis > Overview` from the page header.
+
+## [0.9.16] - 2026-07-09
+
+### Added
+- **Export Findings API & Actions**: Fully implemented findings exporting capabilities (`POST /api/findings/export`). Supports CSV, JSON, Markdown, and HTML report formatting across All, Selected, Filtered, and Current Page scopes.
+- **Bulk Action Operations**: Added a transactional bulk operations controller (`POST /api/findings/bulk`) supporting status overrides, assignee updates, tag injection/removal, archiving, and soft-deletes. Added confirmation warnings in React for deletes and Accepted Risk.
+- **Remediation Ticket System**: Created `/api/tickets` router logic and integrated interactive "Create Ticket" form modal. Gathers active finding codes, metadata (evidence snippets, priorities, scanner details, severities) and stores ticket records while registering logs to `audit_logs` and linking scan results.
+- **Outside Click Dropdown Dismissals**: Attached React ref listeners closing the action bars (Export, Bulk Actions) and bottom Filters card when clicked outside.
+
 ## [0.9.15] - 2026-07-09
 
 ### Added
@@ -118,6 +182,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Redesigned **Risk Overview** legend list to display in a clean, single-column rows pattern with light horizontal border dividers and far-right aligned counts.
   - Nested **Modules Summary** legend lists inside a beautiful rounded card block (`bg-slate-50 border border-border-warm`).
   - Structured **Target Information** metadata cells into aligned `grid grid-cols-[60px_1fr]` columns with border dividers.
+## [0.9.5] - 2026-07-10
+
+### Added
+- **Dynamic Security Posture Engine**: Replaced "Overall Risk Score" with qualitative posture levels (`Excellent`, `Good`, `Fair`, `Poor`, `Critical`) calculated deterministically from active, validated findings, considering severity count, CVSS vulnerability exploitability, and findings category concentration.
+- **Dynamic Confidence & Coverage Calculations**: Introduced mathematical calculations for Confidence (assessing evidence completeness, scanner consistency, and module execution logs) and Coverage (mapping completed versus planned scan modules).
+- **6-Card KPI Grid Redesign**: Rebuilt the top row of `AIAnalysisPage.tsx` to display: Security Posture (with direct compliance modal link), Confidence rating progress, Coverage progress, Critical issues, Total findings (with colored severity count list), and Most Exposed Area (with direct findings redirection link).
+- **Attack Path Analysis Card Removal**: Removed the Attack Path Analysis card block to prioritize data-driven distribution metrics.
+- **Scan Journey Timeline Posture Badges**: Replaced numerical risk score indicators with sequential scan index badges mapping historical security posture progression.
 
 ## [0.9.4] - 2026-07-07
 
@@ -125,6 +197,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Premium Cards Refactor**: Unified dashboard layout on `ResultsPage.tsx` using a premium 3-column layout where Card 1 (Risk Overview) and Card 2 (Modules Summary) are taller and equal in height to the stacked Card 3 (Timeline) and Card 4 (Target Information).
 - **Height Synchronization & Scrollable Table**: Synchronized the left Modules selector sidebar and the right Findings table height (`h-[560px]`). Structured the Findings table with a static header and pagination footer, letting findings rows scroll internally.
 - **Side Panel Drawer**: Replaced inline row expansions with a beautiful sliding side panel drawer on the right side of the screen, featuring full vulnerability explanations, evidence code snippets, remediation guidelines, and clickable reference links.
+
+## [0.9.4] - 2026-07-10
+
+### Added
+- **Owner Scan Results Security**: Enforced ownership verification checks on `/api/scans/{id}/status` and `/api/scans/{id}/results` returning a strict 404 response on unauthorized access, redirecting unauthorized owners to `<NotFoundPage />` on the frontend.
+- **Anonymous Share Token System**: Added unique cryptographically generated `shareToken` columns to database schemas (`schema.prisma` and SQLAlchemy models) with an automated database backfill on startup. Created `/api/scans/share/{shareToken}/status` and `/api/scans/share/{shareToken}/results` routes for authenticated or anonymous guest link-viewers.
+- **Dynamic Share Settings Drawer**: Created an elegant share settings drawer modal inside `ResultsPage.tsx` supporting toggleable private/public options, clipboard share link generation targeting the unique `/share/{shareToken}` URL, and dynamic backend persistence with inline success/error indicators.
+- **Anonymous Share Results Page**: Added `PublicResultsPage.tsx` mimicking the exact details view layout (excluding the scan timeline, target information card, sidebar navigation, and `Scan ID` badge container) to present public results without login requirements.
+- **Security Posture & AI Cache Access**: Refactored findings AI analysis route to allow access on public scans for guests, maintaining prompt analysis caches for responsive load times.
 
 ## [0.9.3] - 2026-07-07
 

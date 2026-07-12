@@ -9,7 +9,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, activePage }: DashboardLayoutProps) {
   return (
-    <div className="min-h-screen bg-bg-primary flex overflow-hidden">
+    <div className="min-h-screen bg-bg-primary text-text-primary flex overflow-hidden relative transition-colors duration-200">
       {/* Static Left Sidebar */}
       <Sidebar activePage={activePage} />
 

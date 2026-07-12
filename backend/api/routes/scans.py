@@ -9,7 +9,7 @@ from sqlalchemy import or_, desc
 from typing import Optional, List, Dict, Any
 from database.session import get_db
 from database.models import User, Asset, Scan, ScanJob, ScanModule, ScanLog, ScanResult
-from api.deps import get_current_user
+from api.deps import get_current_user, get_current_user_optional
 from schemas.schemas import ScanCreate, ScanResponse, PaginatedScans, ScanPatch, ScanProgressResponse, ScanLogsResponse, ModuleProgressSchema, ScanLogItemSchema, ScanResultsResponseSchema
 from services.ai import AIService
 
@@ -80,6 +80,7 @@ def get_scans(
                 id=scan.id,
                 status=scan.status,
                 scanType=scan.scanType,
+                scanName=scan.scanName,
                 score=scan.score,
                 duration=scan.duration,
                 createdAt=scan.createdAt,
@@ -87,7 +88,9 @@ def get_scans(
                     "name": scan.asset.name,
                     "url": scan.asset.url,
                     "type": scan.asset.type
-                }
+                },
+                isPublic=scan.isPublic,
+                shareToken=scan.shareToken
             )
         )
         
@@ -115,6 +118,7 @@ def get_scan(
         id=scan.id,
         status=scan.status,
         scanType=scan.scanType,
+        scanName=scan.scanName,
         score=scan.score,
         duration=scan.duration,
         createdAt=scan.createdAt,
@@ -122,7 +126,9 @@ def get_scan(
             "name": scan.asset.name,
             "url": scan.asset.url,
             "type": scan.asset.type
-        }
+        },
+        isPublic=scan.isPublic,
+        shareToken=scan.shareToken
     )
 
 @router.post("", response_model=ScanResponse, status_code=201)
@@ -298,6 +304,7 @@ def create_scan(
         id=scan.id,
         status=scan.status,
         scanType=scan.scanType,
+        scanName=scan.scanName,
         score=scan.score,
         duration=scan.duration,
         createdAt=scan.createdAt,
@@ -305,7 +312,9 @@ def create_scan(
             "name": asset.name,
             "url": asset.url,
             "type": asset.type
-        }
+        },
+        isPublic=scan.isPublic,
+        shareToken=scan.shareToken
     )
 
 @router.patch("/{id}", response_model=ScanResponse)
@@ -325,6 +334,8 @@ def update_scan(
         scan.score = payload.score
     if payload.duration is not None:
         scan.duration = payload.duration
+    if payload.isPublic is not None:
+        scan.isPublic = payload.isPublic
         
     db.commit()
     
@@ -332,6 +343,7 @@ def update_scan(
         id=scan.id,
         status=scan.status,
         scanType=scan.scanType,
+        scanName=scan.scanName,
         score=scan.score,
         duration=scan.duration,
         createdAt=scan.createdAt,
@@ -339,7 +351,9 @@ def update_scan(
             "name": scan.asset.name,
             "url": scan.asset.url,
             "type": scan.asset.type
-        }
+        },
+        isPublic=scan.isPublic,
+        shareToken=scan.shareToken
     )
 
 @router.delete("/{id}")
@@ -382,6 +396,7 @@ def cancel_scan(
         id=scan.id,
         status=scan.status,
         scanType=scan.scanType,
+        scanName=scan.scanName,
         score=scan.score,
         duration=scan.duration,
         createdAt=scan.createdAt,
@@ -389,7 +404,9 @@ def cancel_scan(
             "name": scan.asset.name,
             "url": scan.asset.url,
             "type": scan.asset.type
-        }
+        },
+        isPublic=scan.isPublic,
+        shareToken=scan.shareToken
     )
 
 @router.post("/{id}/retry", response_model=ScanResponse)
@@ -437,6 +454,7 @@ def retry_scan(
         id=new_scan.id,
         status=new_scan.status,
         scanType=new_scan.scanType,
+        scanName=new_scan.scanName,
         score=new_scan.score,
         duration=new_scan.duration,
         createdAt=new_scan.createdAt,
@@ -444,7 +462,9 @@ def retry_scan(
             "name": orig_scan.asset.name,
             "url": orig_scan.asset.url,
             "type": orig_scan.asset.type
-        }
+        },
+        isPublic=new_scan.isPublic,
+        shareToken=new_scan.shareToken
     )
 
 @router.get("/{id}/progress", response_model=ScanProgressResponse)
@@ -672,16 +692,7 @@ def get_scan_profiles():
 from datetime import timezone
 from sqlalchemy import inspect
 
-@router.get("/{id}/status")
-def get_scan_status(
-    id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    scan = db.query(Scan).join(Asset).filter(Scan.id == id, Asset.userId == current_user.id).first()
-    if not scan:
-        raise HTTPException(status_code=404, detail="Scan record not found.")
-
+def _build_scan_status_dict(scan: Scan, db: Session):
     # Calculate elapsed time
     elapsed_time = None
     if scan.startedAt:
@@ -694,7 +705,7 @@ def get_scan_status(
         elapsed_time = int((end_time - started_at).total_seconds())
 
     # Get module states
-    modules = db.query(ScanModule).filter(ScanModule.scanId == id).all()
+    modules = db.query(ScanModule).filter(ScanModule.scanId == scan.id).all()
     
     selected_mods = []
     for m in modules:
@@ -752,7 +763,7 @@ def get_scan_status(
     # Run the scoring engine v3
     from scoring_engine.scoring import score_from_db
     try:
-        scoring_res = score_from_db(db, id)
+        scoring_res = score_from_db(db, scan.id)
         overall_score = scoring_res.overall_score
         posture = scoring_res.posture
         confidence = scoring_res.scan_confidence
@@ -841,8 +852,22 @@ def get_scan_status(
         "completedModules": completed_list,
         "failedModules": failed_list,
         "queuedModules": queued_list,
-        "modules": module_states
+        "modules": module_states,
+        "isPublic": scan.isPublic,
+        "shareToken": scan.shareToken
     }
+
+@router.get("/{id}/status")
+def get_scan_status(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    scan = db.query(Scan).filter(Scan.id == id).first()
+    if not scan or scan.asset.userId != current_user.id:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+
+    return _build_scan_status_dict(scan, db)
 
 @router.get("/{id}/modules")
 def get_scan_modules_status(
@@ -912,8 +937,8 @@ def get_scan_results(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    scan = db.query(Scan).join(Asset).filter(Scan.id == id, Asset.userId == current_user.id).first()
-    if not scan:
+    scan = db.query(Scan).filter(Scan.id == id).first()
+    if not scan or scan.asset.userId != current_user.id:
         raise HTTPException(status_code=404, detail="Scan record not found.")
 
     results = db.query(ScanResult).filter(ScanResult.scanId == id).order_by(desc(ScanResult.createdAt)).all()
@@ -923,18 +948,46 @@ def get_scan_results(
         "results": results
     }
 
+@router.get("/share/{shareToken}/status")
+def get_public_scan_status(
+    shareToken: str,
+    db: Session = Depends(get_db)
+):
+    scan = db.query(Scan).filter(Scan.shareToken == shareToken).first()
+    if not scan or not scan.isPublic:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+        
+    return _build_scan_status_dict(scan, db)
+
+@router.get("/share/{shareToken}/results", response_model=ScanResultsResponseSchema)
+def get_public_scan_results(
+    shareToken: str,
+    db: Session = Depends(get_db)
+):
+    scan = db.query(Scan).filter(Scan.shareToken == shareToken).first()
+    if not scan or not scan.isPublic:
+        raise HTTPException(status_code=404, detail="Scan record not found.")
+        
+    results = db.query(ScanResult).filter(ScanResult.scanId == scan.id).order_by(desc(ScanResult.createdAt)).all()
+
+    return {
+        "scanId": scan.id,
+        "results": results
+    }
+
 
 @router.get("/results/{finding_id}/ai-analysis")
 def get_finding_ai_analysis(
     finding_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    finding = db.query(ScanResult).join(Scan).join(Asset).filter(
-        ScanResult.id == finding_id,
-        Asset.userId == current_user.id
-    ).first()
+    finding = db.query(ScanResult).filter(ScanResult.id == finding_id).first()
     if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+        
+    is_owner = current_user and finding.scan.asset.userId == current_user.id
+    if not is_owner and not finding.scan.isPublic:
         raise HTTPException(status_code=404, detail="Finding not found.")
 
     analysis = AIService.get_finding_analysis(finding, finding.scan.asset.url)

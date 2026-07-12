@@ -45,6 +45,8 @@ class AssetCreate(BaseModel):
     name: str
     url: str
     type: str
+    description: Optional[str] = None
+    tags: Optional[str] = None
 
 class AssetResponse(BaseModel):
     id: str
@@ -52,6 +54,16 @@ class AssetResponse(BaseModel):
     url: str
     type: str
     createdAt: datetime
+    security_posture: Optional[str] = None
+    latest_scan_status: Optional[str] = None
+    latest_scan_date: Optional[datetime] = None
+    critical_findings: int = 0
+    total_findings: int = 0
+    confidence: Optional[int] = None
+    coverage: Optional[int] = None
+    owner: Optional[str] = None
+    tags: List[str] = []
+    description: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -76,6 +88,7 @@ class ScanPatch(BaseModel):
     status: Optional[str] = None
     score: Optional[int] = None
     duration: Optional[int] = None
+    isPublic: Optional[bool] = None
 
 class ScanResponse(BaseModel):
     id: str
@@ -85,11 +98,14 @@ class ScanResponse(BaseModel):
     duration: Optional[int] = None
     createdAt: datetime
     target: TargetSchema
+    scanName: Optional[str] = None
     coverage: Optional[int] = None
     confidence: Optional[int] = None
     security_posture: Optional[str] = None
     recommendation: Optional[str] = None
     summary: Optional[str] = None
+    isPublic: Optional[bool] = False
+    shareToken: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -178,3 +194,131 @@ class ScanResultItemSchema(BaseModel):
 class ScanResultsResponseSchema(BaseModel):
     scanId: str
     results: List[ScanResultItemSchema]
+
+class AssetScanHistoryItem(BaseModel):
+    id: str
+    createdAt: datetime
+    duration: Optional[int] = None
+    modules: List[str]
+    findingsCount: int
+    status: str
+    score: Optional[int] = None
+
+class AssetDetailResponse(BaseModel):
+    id: str
+    name: str
+    url: str
+    type: str
+    createdAt: datetime
+    security_posture: Optional[str] = None
+    latest_scan_status: Optional[str] = None
+    latest_scan_date: Optional[datetime] = None
+    confidence: Optional[int] = None
+    coverage: Optional[int] = None
+    owner: Optional[str] = None
+    tags: List[str] = []
+    
+    # Metadata
+    environment: str
+    business_criticality: str
+    description: Optional[str] = None
+
+    # Aggregated elements
+    findings_summary: Dict[str, int]
+    open_findings: int
+    resolved_findings: int
+    new_findings: int
+    
+    # Discovery items
+    open_ports: List[int]
+    tech_fingerprint: List[str]
+    dns_info: Dict[str, Any]
+    certificate: Dict[str, Any]
+    security_headers: Dict[str, str]
+    
+    # History
+    scan_history: List[AssetScanHistoryItem]
+
+# Scan Schedules Schemas
+class ScanScheduleCreate(BaseModel):
+    name: str
+    targetUrl: str
+    targetType: str # WEBSITE, REPOSITORY
+    scanType: str = "QUICK"
+    modules: Optional[List[str]] = None
+    crawling: Optional[Dict[str, Any]] = None
+    auth: Optional[Dict[str, Any]] = None
+    proxy: Optional[Dict[str, Any]] = None
+    performance: Optional[Dict[str, Any]] = None
+    exclusions: Optional[Dict[str, Any]] = None
+    headers: Optional[List[Dict[str, Any]]] = None
+    
+    # Scheduling fields
+    frequency: str # ONCE, DAILY, WEEKLY, MONTHLY, CRON
+    cronExpression: Optional[str] = None
+    startDate: str
+    startTime: str
+    timezone: str = "UTC"
+    isActive: bool = True
+
+class ScanSchedulePatch(BaseModel):
+    name: Optional[str] = None
+    frequency: Optional[str] = None
+    cronExpression: Optional[str] = None
+    startDate: Optional[str] = None
+    startTime: Optional[str] = None
+    timezone: Optional[str] = None
+    isActive: Optional[bool] = None
+
+class ScanScheduleResponse(BaseModel):
+    id: str
+    name: str
+    targetUrl: str
+    targetType: str
+    scanType: str
+    selectedModules: Optional[str] = None
+    advancedConfig: Optional[str] = None
+    frequency: str
+    cronExpression: Optional[str] = None
+    startDate: str
+    startTime: str
+    timezone: str
+    isActive: bool
+    lastRunAt: Optional[datetime] = None
+    createdAt: datetime
+    updatedAt: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TeamMemberInvite(BaseModel):
+    fullName: str
+    email: str
+    role: str
+
+class TeamMemberPatch(BaseModel):
+    role: Optional[str] = None
+    isActive: Optional[bool] = None
+
+class TeamMemberResponse(BaseModel):
+    id: str
+    fullName: str
+    email: str
+    role: Optional[str] = None
+    isActive: bool
+    createdAt: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserProfileUpdate(BaseModel):
+    fullName: Optional[str] = None
+    companyName: Optional[str] = None
+    role: Optional[str] = None
+
+
+class UserPasswordUpdate(BaseModel):
+    currentPassword: str
+    newPassword: str

@@ -7,6 +7,9 @@ from .session import Base
 def generate_uuid():
     return str(uuid.uuid4())
 
+def generate_share_token():
+    return uuid.uuid4().hex[:12]
+
 class User(Base):
     __tablename__ = "users"
 
@@ -43,6 +46,8 @@ class Asset(Base):
     url = Column(String, nullable=False)
     type = Column(String, nullable=False) # WEBSITE, REPOSITORY
     userId = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    description = Column(Text, nullable=True)
+    tags = Column(String, nullable=True)
     createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
     updatedAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -60,6 +65,8 @@ class Scan(Base):
     scanName = Column(String, nullable=True)
     scanTags = Column(String, nullable=True)
     assetId = Column(String, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    isPublic = Column(Boolean, default=False, nullable=False)
+    shareToken = Column(String, unique=True, default=generate_share_token, nullable=True)
     
     # Metadata for execution tracking
     startedAt = Column(DateTime(timezone=True), nullable=True)
@@ -145,11 +152,48 @@ class ScanResult(Base):
     mitreAttack = Column(String, nullable=True)
     owaspMapping = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    tags = Column(String, nullable=True) # comma-separated list of tags
+    isArchived = Column(Boolean, default=False, nullable=False)
+    isDeleted = Column(Boolean, default=False, nullable=False)
     resolvedAt = Column(DateTime(timezone=True), nullable=True)
     
     createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
+    ticketId = Column(String, ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True)
 
     scan = relationship("Scan", back_populates="results")
+    ticket = relationship("Ticket", back_populates="results")
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    priority = Column(String, default="MEDIUM", nullable=False) # LOW, MEDIUM, HIGH, CRITICAL
+    severity = Column(String, default="MEDIUM", nullable=False) # LOW, MEDIUM, HIGH, CRITICAL
+    assignee = Column(String, nullable=True)
+    dueDate = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String, default="Open", nullable=False) # Open, In Progress, Resolved
+    tags = Column(String, nullable=True) # comma-separated strings
+    scanId = Column(String, ForeignKey("scans.id", ondelete="SET NULL"), nullable=True)
+    assetId = Column(String, ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
+    evidence = Column(Text, nullable=True)
+    scanner = Column(String, nullable=True)
+    createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
+    updatedAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    results = relationship("ScanResult", back_populates="ticket")
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    userId = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String, nullable=False) # export, bulk_status_change, bulk_assignment, tag_change, archive, delete, ticket_creation
+    timestamp = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
+    findingIds = Column(Text, nullable=True) # JSON list or comma-separated string of affected finding IDs/keys
+    actionMetadata = Column(Text, nullable=True) # JSON dictionary string
+    createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
 
 class ScanLog(Base):
     __tablename__ = "scan_logs"
@@ -161,3 +205,27 @@ class ScanLog(Base):
     createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
 
     scan = relationship("Scan", back_populates="logs")
+
+class ScanSchedule(Base):
+    __tablename__ = "scan_schedules"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    targetType = Column(String, nullable=False) # WEBSITE, REPOSITORY
+    targetUrl = Column(String, nullable=False)
+    scanType = Column(String, default="QUICK", nullable=False) # QUICK, STANDARD, ADVANCED, CUSTOM
+    selectedModules = Column(Text, nullable=True) # JSON list of module IDs
+    advancedConfig = Column(Text, nullable=True) # JSON options (crawling, auth, proxy, performance, exclusions, custom headers)
+    
+    # Scheduling metadata
+    frequency = Column(String, nullable=False) # ONCE, DAILY, WEEKLY, MONTHLY, CRON
+    cronExpression = Column(String, nullable=True)
+    startDate = Column(String, nullable=False)
+    startTime = Column(String, nullable=False)
+    timezone = Column(String, default="UTC", nullable=False)
+    isActive = Column(Boolean, default=True, nullable=False)
+    lastRunAt = Column(DateTime, nullable=True)
+    
+    userId = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    createdAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
+    updatedAt = Column(DateTime(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False)

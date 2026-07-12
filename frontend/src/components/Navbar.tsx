@@ -26,7 +26,7 @@ export function Navbar() {
     <header
       className="sticky top-0 z-50 w-full border-b border-border-warm"
       style={{
-        backgroundColor: 'rgba(250, 250, 247, 0.92)',
+        backgroundColor: 'color-mix(in srgb, var(--color-bg-primary) 92%, transparent)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
@@ -75,7 +75,7 @@ export function Navbar() {
               </Button>
               <button
                 onClick={clearAuth}
-                className="text-nav text-red-500 hover:text-red-700 transition-colors cursor-pointer focus:outline-none text-[11px] font-semibold"
+                className="text-nav text-danger hover:text-danger transition-colors cursor-pointer focus:outline-none text-[11px] font-semibold"
               >
                 Log Out
               </button>
@@ -149,7 +149,7 @@ export function Navbar() {
                         setMobileOpen(false);
                         clearAuth();
                       }}
-                      className="text-nav px-3 py-2 text-left text-red-500 hover:text-red-700 transition-colors cursor-pointer focus:outline-none text-[11px] font-semibold"
+                      className="text-nav px-3 py-2 text-left text-danger hover:text-danger transition-colors cursor-pointer focus:outline-none text-[11px] font-semibold"
                     >
                       Log Out
                     </button>

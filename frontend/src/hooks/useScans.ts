@@ -21,6 +21,7 @@ export interface ScanRecord {
     url: string;
     type: 'WEBSITE' | 'REPOSITORY';
   };
+  isPublic?: boolean;
 }
 
 export interface ScanSummary {
@@ -118,7 +119,7 @@ export function useDeleteScan() {
 
 export function usePatchScan() {
   const queryClient = useQueryClient();
-  return useMutation<ScanRecord, Error, { id: string; status?: string; score?: number; duration?: number }>({
+  return useMutation<ScanRecord, Error, { id: string; status?: string; score?: number; duration?: number; isPublic?: boolean }>({
     mutationFn: ({ id, ...body }) =>
       apiRequest(`/api/scans/${id}`, {
         method: 'PATCH',
@@ -228,6 +229,8 @@ export interface RealScanStatus {
     duration: number | null;
     error: string | null;
   }>;
+  isPublic?: boolean;
+  shareToken?: string;
 }
 
 export function useRealScanStatus(id: string | null, enabled: boolean = false) {
@@ -341,6 +344,29 @@ export function useScanResults(id: string | null, enabled: boolean = false) {
     queryKey: ['scanResults', id],
     queryFn: () => apiRequest(`/api/scans/${id}/results`),
     enabled: !!id && enabled,
+  });
+}
+
+export function usePublicScanStatus(shareToken: string | null, enabled: boolean = false) {
+  return useQuery<RealScanStatus>({
+    queryKey: ['publicScanStatus', shareToken],
+    queryFn: () => apiRequest(`/api/scans/share/${shareToken}/status`),
+    enabled: !!shareToken && enabled,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data && ['RUNNING', 'QUEUED', 'PREPARING'].includes(data.status)) {
+        return 2000;
+      }
+      return false;
+    },
+  });
+}
+
+export function usePublicScanResults(shareToken: string | null, enabled: boolean = false) {
+  return useQuery<ScanResultsResponse>({
+    queryKey: ['publicScanResults', shareToken],
+    queryFn: () => apiRequest(`/api/scans/share/${shareToken}/results`),
+    enabled: !!shareToken && enabled,
   });
 }
 
