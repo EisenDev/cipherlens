@@ -1,3 +1,4 @@
+import logoImg from '../assets/logo.png';
 /**
  * Footer — Global CipherLens site footer.
  * Light mode, warm palette, multi-column layout.
@@ -31,19 +32,22 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-10 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div
-                className="w-7 h-7 rounded-md flex items-center justify-center text-white text-xs font-bold"
-                style={{ background: 'var(--color-accent)' }}
-              >
-                C
+            <div className="flex items-center gap-3 mb-4">
+              <img src={logoImg} alt="CipherLens" className="w-8 h-8 object-contain" />
+              <div className="flex flex-col leading-none">
+                <span
+                  className="text-lg font-bold tracking-wide font-serif relative"
+                  style={{ 
+                    color: 'var(--color-text-on-dark)',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                  }}
+                >
+                  Cipher<span style={{ color: 'var(--color-accent)' }}>lens</span>
+                </span>
+                <div className="flex justify-center -mt-1.5">
+                  <span className="text-[10px]" style={{ color: 'var(--color-accent)' }}>✦</span>
+                </div>
               </div>
-              <span
-                className="text-base font-semibold tracking-tight"
-                style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-on-dark)' }}
-              >
-                CIPHERLENS
-              </span>
             </div>
             <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--color-text-on-dark-muted)', fontFamily: 'var(--font-body)' }}>
               AI Powered Security Intelligence Platform.<br />

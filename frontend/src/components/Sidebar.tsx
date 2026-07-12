@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import logoImg from '../assets/logo.png';
 
 interface SidebarProps {
   activePage: string;
@@ -169,15 +170,22 @@ export default function Sidebar({ activePage }: SidebarProps) {
   return (
     <aside className="w-[240px] flex flex-col flex-shrink-0 border-r h-screen sticky top-0" style={{ backgroundColor: '#131110', borderColor: '#2A241C' }}>
       {/* Brand Header */}
-      <div className="h-16 flex items-center gap-3 px-6 border-b" style={{ borderColor: '#2A241C' }}>
-        <div className="text-accent flex-shrink-0">
-          <svg className="w-6 h-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-          </svg>
+      <div className="h-16 flex items-center gap-3 px-5 border-b" style={{ borderColor: '#2A241C' }}>
+        <img src={logoImg} alt="CipherLens" className="w-7 h-7 object-contain" />
+        <div className="flex flex-col leading-none">
+          <span
+            className="text-base font-bold tracking-wide font-serif"
+            style={{ 
+              color: '#E8D5B8',
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+            }}
+          >
+            Cipher<span style={{ color: '#E8C98A' }}>lens</span>
+          </span>
+          <div className="flex justify-center -mt-1">
+            <span className="text-[9px]" style={{ color: '#E8C98A' }}>✦</span>
+          </div>
         </div>
-        <span className="font-semibold text-white tracking-wider text-sm" style={{ fontFamily: 'var(--font-heading)' }}>
-          CIPHERLENS
-        </span>
       </div>
 
       {/* Navigation Links */}
@@ -350,6 +358,11 @@ export default function Sidebar({ activePage }: SidebarProps) {
           })}
         </div>
       </nav>
+
+      {/* Sidebar Footer Copyright */}
+      <div className="py-2.5 text-center text-[10px] select-none border-t" style={{ borderColor: '#2A241C', color: '#6e5d48' }}>
+        Arjay @ 2026 all rights reserved
+      </div>
 
       {/* Sidebar Footer Mini Profile */}
       <div className="p-4 border-t flex items-center justify-between text-xs" style={{ borderColor: '#2A241C', color: '#7A6A54' }}>

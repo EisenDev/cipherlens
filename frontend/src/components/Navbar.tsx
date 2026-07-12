@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui';
 import { useUIStore } from '../store/useUIStore';
 import { useAuthStore } from '../store/useAuthStore';
+import logoImg from '../assets/logo.png';
 
 const navLinks = [
   { label: 'Platform', href: '#', hasDropdown: true },
@@ -33,19 +34,22 @@ export function Navbar() {
     >
       <div className="container-main flex items-center justify-between h-14">
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2.5 flex-shrink-0">
-          <div
-            className="w-7 h-7 rounded-md flex items-center justify-center text-white text-xs font-bold"
-            style={{ background: 'var(--color-accent)' }}
-          >
-            C
+        <a href="/" className="flex items-center gap-3 flex-shrink-0 group">
+          <img src={logoImg} alt="CipherLens" className="w-8 h-8 object-contain transition-transform group-hover:scale-105" />
+          <div className="flex flex-col leading-none">
+            <span
+              className="text-lg font-bold tracking-wide font-serif relative"
+              style={{ 
+                color: 'var(--color-text-primary)',
+                textShadow: '0 2px 4px rgba(0,0,0,0.15)'
+              }}
+            >
+              Cipher<span style={{ color: 'var(--color-accent)' }}>lens</span>
+            </span>
+            <div className="flex justify-center -mt-1.5">
+              <span className="text-[10px]" style={{ color: 'var(--color-accent)' }}>✦</span>
+            </div>
           </div>
-          <span
-            className="text-base font-semibold tracking-tight"
-            style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-primary)' }}
-          >
-            CIPHERLENS
-          </span>
         </a>
 
         {/* Desktop Nav */}
