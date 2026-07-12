@@ -13,17 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependency requirements
-COPY requirements.txt /app/
+COPY backend/requirements.txt /app/
 
 # Install python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application code
-COPY . /app/
+COPY backend /app
 
-# Copy scanner engine so that relative imports resolve correctly (../../scanner)
-COPY ../scanner /scanner
+# Copy scanner engine so that relative imports resolve correctly
+COPY scanner /scanner
 
 # Environment variables defaults
 ENV PORT=3005
