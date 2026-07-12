@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../store/useAuthStore';
 import logoImg from '../assets/logo.png';
 
 interface SidebarProps {
@@ -7,7 +6,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activePage }: SidebarProps) {
-  const { user } = useAuthStore();
 
   const menuItems = {
     main: [
@@ -359,23 +357,17 @@ export default function Sidebar({ activePage }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Sidebar Footer Copyright */}
-      <div className="py-2.5 text-center text-[10px] select-none border-t" style={{ borderColor: '#2A241C', color: '#6e5d48' }}>
-        Arjay @ 2026 all rights reserved
-      </div>
-
-      {/* Sidebar Footer Mini Profile */}
-      <div className="p-4 border-t flex items-center justify-between text-xs" style={{ borderColor: '#2A241C', color: '#7A6A54' }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full border font-bold flex items-center justify-center uppercase select-none" style={{ backgroundColor: '#1E1A14', borderColor: '#3D3120', color: '#E8C98A' }}>
-            {user?.fullName?.substring(0, 2) || 'JD'}
-          </div>
-          <div className="leading-tight text-left">
-            <p className="font-semibold truncate max-w-[125px]" style={{ color: '#E8D5B8' }}>{user?.fullName || 'John Doe'}</p>
-            <p className="text-body-sm truncate max-w-[125px]" style={{ color: '#7A6A54' }}>{user?.email || 'admin@acme.com'}</p>
-          </div>
-        </div>
-        <span className="text-body-xs" style={{ color: 'var(--color-text-secondary)' }}>▼</span>
+      {/* Sidebar Footer Copyright & Quote */}
+      <div className="p-4 border-t flex flex-col items-center text-center gap-1 select-none" style={{ borderColor: '#2A241C' }}>
+        <p className="text-[9px] uppercase tracking-wider font-extrabold font-serif" style={{ color: '#E8C98A' }}>
+          KNOW WHAT YOU DEPLOY.
+        </p>
+        <p className="text-[9px] uppercase tracking-wider font-extrabold font-serif" style={{ color: '#E8C98A' }}>
+          SECURE WHAT MATTERS.
+        </p>
+        <p className="text-[10px] mt-1.5 font-medium" style={{ color: '#6e5d48' }}>
+          Arjay @ 2026 all rights reserved
+        </p>
       </div>
     </aside>
   );

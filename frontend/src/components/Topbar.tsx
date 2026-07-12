@@ -13,6 +13,29 @@ export default function Topbar() {
 
   const isAssetDetailPath = location.pathname.startsWith('/assets/') && location.pathname !== '/assets';
 
+  const getBreadcrumb = () => {
+    const path = location.pathname;
+    if (path.startsWith('/overview')) return { category: 'Workspace', page: 'Overview' };
+    if (path.startsWith('/assets')) return { category: 'Workspace', page: 'Assets' };
+    if (path.startsWith('/scans')) return { category: 'Workspace', page: 'Scans' };
+    if (path.startsWith('/findings')) return { category: 'Analysis', page: 'Findings' };
+    if (path.startsWith('/ai-analysis')) return { category: 'Analysis', page: 'AI Analysis' };
+    if (path.startsWith('/compliance')) return { category: 'Analysis', page: 'Compliance' };
+    if (path.startsWith('/schedules')) return { category: 'Automation', page: 'Schedules' };
+    if (path.startsWith('/integrations')) return { category: 'Automation', page: 'Integrations' };
+    if (path.startsWith('/api-keys')) return { category: 'Automation', page: 'API Keys' };
+    if (path.startsWith('/team')) return { category: 'Workspace', page: 'Team' };
+    if (path.startsWith('/organizations')) return { category: 'Workspace', page: 'Organizations' };
+    if (path.startsWith('/billing')) return { category: 'Workspace', page: 'Billing' };
+    if (path.startsWith('/settings')) return { category: 'Settings', page: 'Settings' };
+    if (path.startsWith('/notifications')) return { category: 'Settings', page: 'Notifications' };
+    if (path.startsWith('/audit-logs')) return { category: 'Settings', page: 'Audit Logs' };
+    if (path.startsWith('/support')) return { category: 'Settings', page: 'Support' };
+    return { category: 'CipherLens', page: 'Console' };
+  };
+
+  const breadcrumb = getBreadcrumb();
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -62,13 +85,10 @@ export default function Topbar() {
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Assets inventory
         </Link>
       ) : (
-        <div className="flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-          </svg>
-          <span className="text-xs font-semibold tracking-widest uppercase select-none" style={{ color: 'var(--color-accent)' }}>
-            CipherLens
-          </span>
+        <div className="flex items-center gap-1.5 text-xs select-none" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
+          <span style={{ color: 'var(--color-text-secondary)' }}>{breadcrumb.category}</span>
+          <span style={{ color: 'var(--color-border-strong)' }}>/</span>
+          <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{breadcrumb.page}</span>
         </div>
       )}
 
