@@ -248,6 +248,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Status & Module endpoints**: Created `GET /api/scans/{id}/status` and `GET /api/scans/{id}/modules` fetching database execution progress.
 - **React Progress Page**: Added `ProgressPage.tsx` page to display active execution statuses, progress meters, individual module states, and auto-scrolling log streams.
 - **Tests Coverage**: Created `test_worker.py` checking Redis connections, offline enqueuing, and execution lifecycle state updates.
+## [0.7.1] - 2026-07-13
+
+### Fixed
+- **Scanner Dependency Hotfix:** Installed required system library packages (`procps`, `bsdextrautils`, and `libpcap-dev`) to resolve runtime crashes of the `ssl`, `tls` (dependent on testssl.sh which needs `hexdump` and `ps`), and `ports` (dependent on naabu which needs `libpcap`) scanner modules.
+- **VM Swap Configuration:** Created and enabled a 2GB virtual memory swap space (`/swapfile`) on the Azure VM server to prevent OOM system freezes during resource-heavy container rebuilds.
 
 ## [0.7.0] - 2026-07-06
 
