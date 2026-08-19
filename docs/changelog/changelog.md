@@ -6,42 +6,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.9.20] - 2026-08-19
-
-### Added
-
-- **Advanced Scan Configuration Contract v1**: Added typed crawling,
-  authentication, proxy, performance, exclusion, and custom-header schemas for
-  scans and schedules, with a documented runtime capability matrix and ADR.
-- **Scanner Runtime Option Adapter**: Added a single backend normalization
-  boundary that converts persisted grouped settings into canonical scanner
-  options for Katana and httpx modules.
-- **Advanced Configuration Tests**: Added backend safety/normalization tests and
-  scanner command-construction tests covering depth, scope, forms, query
-  handling, limits, timeouts, concurrency, rates, retries, redirects, exclusions,
-  proxies, headers, robots rules, and command redaction.
-
-### Changed
-
-- **New Scan Modal Capability Alignment**: Advanced controls now submit form
-  discovery and ignored query parameters, use strict TypeScript contracts, show
-  compatibility-aware summaries, and disable options that version 1 cannot
-  safely enforce.
-- **Crawler and Header Scanners**: Katana and httpx commands now consume effective
-  per-scan options rather than global defaults. Crawler results are capped by the
-  configured stored-page limit and robots `Disallow` paths are converted into
-  crawler exclusions.
-- **Scheduled Scans**: Stored advanced configuration now includes a version and
-  follows the same validated execution path as immediate scans.
-
-### Security
-
-- Authentication configurations, credentialed proxies, sensitive/routing
-  headers, header injection, invalid exclusion regexes, and header-bearing
-  external crawling are rejected before persistence.
-- Header and proxy argument values are redacted from recorded tool commands, and
-  duplicated modal state no longer restores authentication or proxy secrets.
-
 ## [0.9.19] - 2026-07-10
 
 ### Fixed

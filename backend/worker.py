@@ -118,7 +118,6 @@ class Worker:
                             pass
                             
                     modules_to_create = {
-                        "config_version": adv_config.get("version", 1),
                         "crawling": adv_config.get("crawling") or {},
                         "auth": adv_config.get("auth") or {},
                         "proxy": adv_config.get("proxy") or {},

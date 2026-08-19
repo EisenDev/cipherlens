@@ -39,75 +39,12 @@ export interface ScanCreateParams {
   scanName?: string;
   scanTags?: string;
   modules?: string[];
-  crawling?: CrawlingConfiguration;
-  auth?: AuthenticationConfiguration;
-  proxy?: ProxyConfiguration;
-  performance?: PerformanceConfiguration;
-  exclusions?: ExclusionsConfiguration;
-  headers?: CustomHeaderConfiguration[];
-}
-
-export interface CrawlingConfiguration {
-  depth: 'Shallow (1 level)' | 'Medium (2 levels)' | 'Deep (5 levels)';
-  limit: number;
-  respectRobots: boolean;
-  subdomains: boolean;
-  externalLinks: boolean;
-  discoverForms: boolean;
-  queryParams: string;
-  ignoreQueryParams: string;
-  userAgent: 'CipherLens Default' | 'Chrome Desktop' | 'Firefox Desktop' | 'Custom UA';
-  customUserAgent?: string;
-  delay: number;
-}
-
-export interface AuthenticationConfiguration {
-  type: 'None' | 'Form Login' | 'Basic Auth' | 'Bearer Token' | 'Cookie Session' | 'API Key';
-  loginUrl: string;
-  username: string;
-  password: string;
-  bearerToken: string;
-  apiKey: string;
-  selectors: { username: string; password: string; submit: string };
-  loggedInIndicator: string;
-  failureIndicator: string;
-  useSessionCookies: boolean;
-}
-
-export interface ProxyConfiguration {
-  useProxy: boolean;
-  type: 'HTTP' | 'HTTPS' | 'SOCKS5';
-  url: string;
-  username: string;
-  password: string;
-  noProxy: string;
-}
-
-export interface PerformanceConfiguration {
-  timeout: number;
-  connectionTimeout: number;
-  maxConcurrent: number;
-  rpsLimit: number;
-  delay: number;
-  maxRetries: number;
-  retryDelay: number;
-  maxRedirects: number;
-  respectRetryAfter: boolean;
-}
-
-export interface ExclusionsConfiguration {
-  paths: string;
-  extensions: string;
-  mimeTypes: string;
-  queryParams: string;
-  patterns: string;
-  respectSitemap: boolean;
-  caseSensitive: boolean;
-}
-
-export interface CustomHeaderConfiguration {
-  name: string;
-  value: string;
+  crawling?: Record<string, any>;
+  auth?: Record<string, any>;
+  proxy?: Record<string, any>;
+  performance?: Record<string, any>;
+  exclusions?: Record<string, any>;
+  headers?: Array<Record<string, any>>;
 }
 
 export function useScans(params: {
@@ -432,3 +369,4 @@ export function usePublicScanResults(shareToken: string | null, enabled: boolean
     enabled: !!shareToken && enabled,
   });
 }
+

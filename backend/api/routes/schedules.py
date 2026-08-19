@@ -6,11 +6,6 @@ from database.session import get_db
 from database.models import User, ScanSchedule
 from api.deps import get_current_user
 from schemas.schemas import ScanScheduleCreate, ScanSchedulePatch, ScanScheduleResponse
-from services.scan_options import (
-    UnsafeScanConfiguration,
-    advanced_configuration_from_payload,
-    validate_safe_configuration,
-)
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
@@ -28,11 +23,14 @@ def create_schedule(
     current_user: User = Depends(get_current_user)
 ):
     # Construct advanced config dict
-    adv_config = advanced_configuration_from_payload(payload)
-    try:
-        validate_safe_configuration(adv_config)
-    except UnsafeScanConfiguration as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+    adv_config = {
+        "crawling": payload.crawling or {},
+        "auth": payload.auth or {},
+        "proxy": payload.proxy or {},
+        "performance": payload.performance or {},
+        "exclusions": payload.exclusions or {},
+        "headers": payload.headers or []
+    }
     
     schedule = ScanSchedule(
         name=payload.name,

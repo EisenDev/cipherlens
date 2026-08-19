@@ -12,11 +12,6 @@ from database.models import User, Asset, Scan, ScanJob, ScanModule, ScanLog, Sca
 from api.deps import get_current_user, get_current_user_optional
 from schemas.schemas import ScanCreate, ScanResponse, PaginatedScans, ScanPatch, ScanProgressResponse, ScanLogsResponse, ModuleProgressSchema, ScanLogItemSchema, ScanResultsResponseSchema
 from services.ai import AIService
-from services.scan_options import (
-    UnsafeScanConfiguration,
-    advanced_configuration_from_payload,
-    validate_safe_configuration,
-)
 
 # Dynamically append scanner framework path to sys.path
 SCANNER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "scanner"))
@@ -143,11 +138,6 @@ def create_scan(
     current_user: User = Depends(get_current_user)
 ):
     # ── Input & Format Validation ──────────────────────────────────────────
-    advanced_configuration = advanced_configuration_from_payload(payload)
-    try:
-        validate_safe_configuration(advanced_configuration)
-    except UnsafeScanConfiguration as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
     asset_url = payload.targetUrl.strip()
     asset_type = payload.targetType.upper()
     
@@ -175,6 +165,49 @@ def create_scan(
             )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported target type: {asset_type}")
+
+    # 2. Authentication Parameters Validation
+    if payload.auth:
+        auth_type = payload.auth.get("type", "None")
+        if auth_type == "Form Login":
+            if not payload.auth.get("loginUrl") or not payload.auth.get("loginUrl").strip():
+                raise HTTPException(status_code=400, detail="Login URL is required for Form Login auth.")
+            if not payload.auth.get("username") or not payload.auth.get("username").strip():
+                raise HTTPException(status_code=400, detail="Username is required for Form Login auth.")
+            if not payload.auth.get("password") or not payload.auth.get("password").strip():
+                raise HTTPException(status_code=400, detail="Password is required for Form Login auth.")
+        elif auth_type == "Bearer Token":
+            if not payload.auth.get("bearerToken") or not payload.auth.get("bearerToken").strip():
+                raise HTTPException(status_code=400, detail="Bearer Token is required when token auth is selected.")
+        elif auth_type == "API Key":
+            if not payload.auth.get("apiKey") or not payload.auth.get("apiKey").strip():
+                raise HTTPException(status_code=400, detail="API Key is required when API key auth is selected.")
+
+    # 3. Proxy Parameters Validation
+    if payload.proxy and payload.proxy.get("useProxy"):
+        proxy_url = payload.proxy.get("url", "")
+        if not proxy_url or not proxy_url.strip():
+            raise HTTPException(status_code=400, detail="Proxy URL is required when proxy is enabled.")
+
+    # 4. Performance Settings Ranges Validation
+    if payload.performance:
+        timeout = payload.performance.get("timeout")
+        if timeout is not None and (timeout < 5 or timeout > 300):
+            raise HTTPException(status_code=400, detail="Performance request timeout must be between 5 and 300 seconds.")
+        max_concurrent = payload.performance.get("maxConcurrent")
+        if max_concurrent is not None and (max_concurrent < 1 or max_concurrent > 50):
+            raise HTTPException(status_code=400, detail="Maximum concurrent requests must be between 1 and 50.")
+        rps_limit = payload.performance.get("rpsLimit")
+        if rps_limit is not None and (rps_limit < 1 or rps_limit > 1000):
+            raise HTTPException(status_code=400, detail="RPS limit must be between 1 and 1000.")
+
+    # 5. Header List Format Validation
+    if payload.headers:
+        for hdr in payload.headers:
+            if not isinstance(hdr, dict) or "name" not in hdr or "value" not in hdr:
+                raise HTTPException(status_code=400, detail="Each custom header must contain name and value properties.")
+            if not hdr["name"].strip():
+                raise HTTPException(status_code=400, detail="Custom header name cannot be empty.")
 
     # ── Database Persistence ───────────────────────────────────────────────
     # Generate unique Job ID
@@ -221,13 +254,12 @@ def create_scan(
     
     # 4 & 5. Save all selected modules & advanced options
     modules_to_create = {
-        "config_version": advanced_configuration["version"],
-        "crawling": advanced_configuration["crawling"],
-        "auth": advanced_configuration["auth"],
-        "proxy": advanced_configuration["proxy"],
-        "performance": advanced_configuration["performance"],
-        "exclusions": advanced_configuration["exclusions"],
-        "headers": advanced_configuration["headers"],
+        "crawling": payload.crawling or {},
+        "auth": payload.auth or {},
+        "proxy": payload.proxy or {},
+        "performance": payload.performance or {},
+        "exclusions": payload.exclusions or {},
+        "headers": payload.headers or [],
         "selected_modules": payload.modules or []
     }
     
@@ -995,3 +1027,6 @@ def get_scan_scoring(
             status_code=500,
             detail=f"Failed to calculate security score breakdown: {str(e)}"
         )
+
+
+
