@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from typing import Literal, Optional, List, Dict, Any
 from datetime import datetime
 
 # Auth Schemas
@@ -69,6 +69,85 @@ class AssetResponse(BaseModel):
         from_attributes = True
 
 # Scan Schemas
+class StrictScanConfiguration(BaseModel):
+    """Base model for versioned advanced scan configuration sections."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CrawlingConfiguration(StrictScanConfiguration):
+    depth: Literal["Shallow (1 level)", "Medium (2 levels)", "Deep (5 levels)"] = "Medium (2 levels)"
+    limit: int = Field(default=500, ge=10, le=10000)
+    respectRobots: bool = True
+    subdomains: bool = False
+    externalLinks: bool = False
+    discoverForms: bool = False
+    queryParams: str = Field(default="", max_length=2000)
+    ignoreQueryParams: str = Field(default="", max_length=2000)
+    userAgent: Literal["CipherLens Default", "Chrome Desktop", "Firefox Desktop", "Custom UA"] = "CipherLens Default"
+    customUserAgent: Optional[str] = Field(default=None, max_length=512)
+    delay: int = Field(default=200, ge=0, le=60000)
+
+
+class AuthenticationConfiguration(StrictScanConfiguration):
+    type: Literal["None", "Form Login", "Basic Auth", "Bearer Token", "Cookie Session", "API Key"] = "None"
+    loginUrl: str = Field(default="", max_length=2048)
+    username: str = Field(default="", max_length=512)
+    password: str = Field(default="", max_length=4096)
+    bearerToken: str = Field(default="", max_length=8192)
+    apiKey: str = Field(default="", max_length=8192)
+    selectors: Dict[str, str] = Field(default_factory=dict)
+    loggedInIndicator: str = Field(default="", max_length=1000)
+    failureIndicator: str = Field(default="", max_length=1000)
+    useSessionCookies: bool = False
+
+
+class ProxyConfiguration(StrictScanConfiguration):
+    useProxy: bool = False
+    type: Literal["HTTP", "HTTPS", "SOCKS5"] = "HTTP"
+    url: str = Field(default="", max_length=2048)
+    username: str = Field(default="", max_length=512)
+    password: str = Field(default="", max_length=4096)
+    noProxy: str = Field(default="", max_length=2000)
+
+
+class PerformanceConfiguration(StrictScanConfiguration):
+    timeout: int = Field(default=30, ge=5, le=300)
+    connectionTimeout: int = Field(default=10, ge=1, le=120)
+    maxConcurrent: int = Field(default=10, ge=1, le=50)
+    rpsLimit: int = Field(default=50, ge=1, le=1000)
+    delay: int = Field(default=200, ge=0, le=60000)
+    maxRetries: int = Field(default=3, ge=0, le=5)
+    retryDelay: int = Field(default=1000, ge=0, le=60000)
+    maxRedirects: int = Field(default=10, ge=0, le=20)
+    respectRetryAfter: bool = True
+
+
+class ExclusionsConfiguration(StrictScanConfiguration):
+    paths: str = Field(default="", max_length=10000)
+    extensions: str = Field(default="", max_length=4000)
+    mimeTypes: str = Field(default="", max_length=4000)
+    queryParams: str = Field(default="", max_length=4000)
+    patterns: str = Field(default="", max_length=10000)
+    respectSitemap: bool = True
+    caseSensitive: bool = False
+
+
+class CustomHeaderConfiguration(StrictScanConfiguration):
+    name: str = Field(min_length=1, max_length=256)
+    value: str = Field(default="", max_length=8192)
+
+    @field_validator("name")
+    @classmethod
+    def header_name_must_be_token(cls, value: str) -> str:
+        import re
+
+        stripped = value.strip()
+        if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", stripped):
+            raise ValueError("Header name must be a valid HTTP token")
+        return stripped
+
+
 class ScanCreate(BaseModel):
     targetUrl: str
     targetType: str # WEBSITE, REPOSITORY
@@ -77,12 +156,12 @@ class ScanCreate(BaseModel):
     scanTags: Optional[str] = None
     modules: Optional[List[str]] = None
     # Advanced Options (all optional for creation mapping)
-    crawling: Optional[Dict[str, Any]] = None
-    auth: Optional[Dict[str, Any]] = None
-    proxy: Optional[Dict[str, Any]] = None
-    performance: Optional[Dict[str, Any]] = None
-    exclusions: Optional[Dict[str, Any]] = None
-    headers: Optional[List[Dict[str, Any]]] = None
+    crawling: Optional[CrawlingConfiguration] = None
+    auth: Optional[AuthenticationConfiguration] = None
+    proxy: Optional[ProxyConfiguration] = None
+    performance: Optional[PerformanceConfiguration] = None
+    exclusions: Optional[ExclusionsConfiguration] = None
+    headers: Optional[List[CustomHeaderConfiguration]] = Field(default=None, max_length=50)
 
 class ScanPatch(BaseModel):
     status: Optional[str] = None
@@ -246,12 +325,12 @@ class ScanScheduleCreate(BaseModel):
     targetType: str # WEBSITE, REPOSITORY
     scanType: str = "QUICK"
     modules: Optional[List[str]] = None
-    crawling: Optional[Dict[str, Any]] = None
-    auth: Optional[Dict[str, Any]] = None
-    proxy: Optional[Dict[str, Any]] = None
-    performance: Optional[Dict[str, Any]] = None
-    exclusions: Optional[Dict[str, Any]] = None
-    headers: Optional[List[Dict[str, Any]]] = None
+    crawling: Optional[CrawlingConfiguration] = None
+    auth: Optional[AuthenticationConfiguration] = None
+    proxy: Optional[ProxyConfiguration] = None
+    performance: Optional[PerformanceConfiguration] = None
+    exclusions: Optional[ExclusionsConfiguration] = None
+    headers: Optional[List[CustomHeaderConfiguration]] = Field(default=None, max_length=50)
     
     # Scheduling fields
     frequency: str # ONCE, DAILY, WEEKLY, MONTHLY, CRON

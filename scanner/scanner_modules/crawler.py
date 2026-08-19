@@ -15,8 +15,12 @@ Tool: katana -u <target> -json -depth <n>
 from __future__ import annotations
 
 import sys
+import re
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import urljoin
+
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -55,21 +59,10 @@ class CrawlerScanner(BaseScanner):
 
     def execute(self) -> ScannerResult:
         target = sanitize_target(self.target)
-        katana_path = self.config.tool_path("katana")
         timeout = self._option("timeout", self.config.default_timeout)
-        depth = self._option("crawler_depth", self.config.crawler_depth)
-        max_pages = self._option("crawler_max_pages", self.config.crawler_max_pages)
-
-        command = [
-            str(katana_path),
-            "-u", target,
-            "-jsonl",
-            "-depth", str(depth),
-            "-silent",
-            "-timeout", str(self.config.request_timeout),
-            "-rate-limit", str(self.config.rate_limit_rps),
-            "-no-color",
-        ]
+        depth = int(self._option("crawler_depth", self.config.crawler_depth))
+        robots_patterns = self._load_robots_exclusions() if self._option("respect_robots", True) else []
+        command = self.build_command(robots_patterns)
 
         exit_code, stdout, stderr = run_tool(command, timeout=timeout + 30)
         raw_items = parse_jsonl(stdout)
@@ -77,6 +70,8 @@ class CrawlerScanner(BaseScanner):
         discovered_urls: List[str] = []
 
         for item in raw_items:
+            if len(discovered_urls) >= self.max_pages:
+                break
             url = item.get("request", {}).get("endpoint", "") or item.get("endpoint", "")
             if not url:
                 continue
@@ -129,10 +124,107 @@ class CrawlerScanner(BaseScanner):
             status=ScannerStatus.SUCCESS if exit_code in (0, 1) else ScannerStatus.PARTIAL,
             findings=findings,
             metadata={"discovered_urls_count": len(discovered_urls), "depth": depth},
-            tool_command=" ".join(str(c) for c in command),
+            tool_command=self._redacted_command(command, {"-headers", "-proxy"}),
             tool_exit_code=exit_code,
             tool_raw_output=truncate_output(stdout),
         )
+
+    @property
+    def max_pages(self) -> int:
+        """Maximum number of crawler results accepted into scan output."""
+        return int(self._option("crawler_max_pages", self.config.crawler_max_pages))
+
+    def build_command(self, additional_exclusions: List[str] | None = None) -> List[str]:
+        """Build a Katana invocation from validated canonical scan options."""
+        target = sanitize_target(self.target)
+        command = [
+            str(self.config.tool_path("katana")),
+            "-u", target,
+            "-jsonl",
+            "-depth", str(self._option("crawler_depth", self.config.crawler_depth)),
+            "-silent",
+            "-timeout", str(self._option("timeout", self.config.request_timeout)),
+            "-concurrency", str(self._option("max_concurrent", self.config.default_concurrency)),
+            "-rate-limit", str(self._option("rate_limit_rps", self.config.rate_limit_rps)),
+            "-retry", str(self._option("max_retries", self.config.max_retries)),
+            "-no-color",
+        ]
+
+        delay_ms = int(self._option("request_delay_ms", 0))
+        if delay_ms > 0:
+            command.extend(["-delay", str(max(1, delay_ms // 1000))])
+        if self._option("respect_robots", True):
+            command.extend(["-known-files", "robotstxt,sitemapxml"])
+        if self._option("discover_forms", False):
+            command.append("-form-extraction")
+        if self._option("ignore_query_params", []):
+            command.append("-ignore-query-params")
+        if not self._option("follow_redirects", int(self._option("max_redirects", 10)) > 0):
+            command.append("-disable-redirects")
+
+        if self._option("crawl_external_links", False):
+            command.append("-no-scope")
+        else:
+            scope = "rdn" if self._option("crawl_subdomains", False) else "fqdn"
+            command.extend(["-field-scope", scope])
+
+        extensions = self._option("excluded_extensions", [])
+        if extensions:
+            command.extend(["-extension-filter", ",".join(extensions)])
+        patterns = list(self._option("excluded_url_patterns", []))
+        patterns.extend(additional_exclusions or [])
+        for pattern in patterns:
+            command.extend(["-crawl-out-scope", pattern])
+        proxy_url = self._option("proxy_url", "")
+        if proxy_url:
+            command.extend(["-proxy", proxy_url])
+
+        headers = list(self._option("custom_headers", []))
+        user_agent = self._option("user_agent", "")
+        if user_agent:
+            headers.append({"name": "User-Agent", "value": user_agent})
+        for header in headers:
+            command.extend(["-headers", f"{header['name']}:{header['value']}"])
+        return command
+
+    def _load_robots_exclusions(self) -> List[str]:
+        """Load target-origin robots exclusions without following redirects."""
+        target = sanitize_target(self.target)
+        headers = {
+            header["name"]: header["value"]
+            for header in self._option("custom_headers", [])
+        }
+        user_agent = self._option("user_agent", "")
+        if user_agent:
+            headers["User-Agent"] = user_agent
+        proxy_url = self._option("proxy_url", "")
+        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+        try:
+            response = requests.get(
+                urljoin(f"{target}/", "/robots.txt"),
+                headers=headers,
+                proxies=proxies,
+                timeout=int(self._option("connection_timeout", 10)),
+                allow_redirects=False,
+            )
+            if response.status_code != 200:
+                return []
+            return self._parse_robots_disallow(response.text)
+        except requests.RequestException:
+            return []
+
+    @staticmethod
+    def _parse_robots_disallow(content: str) -> List[str]:
+        """Convert non-empty Disallow paths into conservative URL regexes."""
+        patterns: List[str] = []
+        for line in content.splitlines():
+            directive, separator, raw_value = line.partition(":")
+            if not separator or directive.strip().lower() != "disallow":
+                continue
+            path = raw_value.split("#", 1)[0].strip()
+            if path:
+                patterns.append(rf".*{re.escape(path)}.*")
+        return patterns
 
     def metadata(self) -> Dict[str, Any]:
         return {

@@ -168,18 +168,8 @@ class HeadersScanner(BaseScanner):
 
     def execute(self) -> ScannerResult:
         target = sanitize_target(self.target)
-        httpx_path = self.config.tool_path("httpx")
         timeout = self._option("timeout", self.config.default_timeout)
-
-        command = [
-            str(httpx_path),
-            "-u", target,
-            "-json",
-            "-include-response-header",
-            "-follow-redirects",
-            "-silent",
-            "-timeout", str(timeout),
-        ]
+        command = self.build_command()
 
         exit_code, stdout, stderr = run_tool(command, timeout=timeout + 10)
 
@@ -197,7 +187,7 @@ class HeadersScanner(BaseScanner):
                 target=target,
                 status=ScannerStatus.FAILED,
                 error_message=f"httpx exited with code {exit_code}: {stderr[:500]}",
-                tool_command=" ".join(str(c) for c in command),
+                tool_command=self._redacted_command(command, {"-header", "-proxy"}),
                 tool_exit_code=exit_code,
                 tool_raw_output=truncate_output(stdout + stderr),
             )
@@ -279,10 +269,41 @@ class HeadersScanner(BaseScanner):
                 "headers_count": len(response_headers),
                 "response_headers": response_headers,
             },
-            tool_command=" ".join(str(c) for c in command),
+            tool_command=self._redacted_command(command, {"-header", "-proxy"}),
             tool_exit_code=exit_code,
             tool_raw_output=truncate_output(stdout),
         )
+
+    def build_command(self) -> List[str]:
+        """Build an httpx invocation from validated canonical scan options."""
+        target = sanitize_target(self.target)
+        command = [
+            str(self.config.tool_path("httpx")),
+            "-u", target,
+            "-json",
+            "-include-response-header",
+            "-silent",
+            "-timeout", str(self._option("timeout", self.config.request_timeout)),
+            "-threads", str(self._option("max_concurrent", self.config.default_concurrency)),
+            "-rate-limit", str(self._option("rate_limit_rps", self.config.rate_limit_rps)),
+            "-retries", str(self._option("max_retries", self.config.max_retries)),
+        ]
+        max_redirects = int(self._option("max_redirects", 10))
+        if max_redirects > 0:
+            command.extend(["-follow-host-redirects", "-max-redirects", str(max_redirects)])
+        delay_ms = int(self._option("request_delay_ms", 0))
+        if delay_ms > 0:
+            command.extend(["-delay", f"{delay_ms}ms"])
+        proxy_url = self._option("proxy_url", "")
+        if proxy_url:
+            command.extend(["-proxy", proxy_url])
+        headers = list(self._option("custom_headers", []))
+        user_agent = self._option("user_agent", "")
+        if user_agent:
+            headers.append({"name": "User-Agent", "value": user_agent})
+        for header in headers:
+            command.extend(["-header", f"{header['name']}:{header['value']}"])
+        return command
 
     def metadata(self) -> Dict[str, Any]:
         return {

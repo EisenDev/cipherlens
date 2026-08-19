@@ -150,7 +150,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // 1. Crawling Options
-  const [crawlingDepth, setCrawlingDepth] = useState('Medium (2 levels)');
+  const [crawlingDepth, setCrawlingDepth] = useState<'Shallow (1 level)' | 'Medium (2 levels)' | 'Deep (5 levels)'>('Medium (2 levels)');
   const [crawlLimit, setCrawlLimit] = useState(500);
   const [respectRobots, setRespectRobots] = useState(true);
   const [crawlSubdomains, setCrawlSubdomains] = useState(true);
@@ -158,12 +158,12 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
   const [discoverForms, setDiscoverForms] = useState(true);
   const [allowQueryParams, setAllowQueryParams] = useState('');
   const [ignoreQueryParams, setIgnoreQueryParams] = useState('');
-  const [userAgent, setUserAgent] = useState('CipherLens Default');
+  const [userAgent, setUserAgent] = useState<'CipherLens Default' | 'Chrome Desktop' | 'Firefox Desktop' | 'Custom UA'>('CipherLens Default');
   const [customUserAgent, setCustomUserAgent] = useState('');
   const [requestDelay, setRequestDelay] = useState(200);
 
   // 2. Auth Options
-  const [authType, setAuthType] = useState('None');
+  const [authType, setAuthType] = useState<'None' | 'Form Login' | 'Basic Auth' | 'Bearer Token' | 'Cookie Session' | 'API Key'>('None');
   const [loginUrl, setLoginUrl] = useState('');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -178,7 +178,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
 
   // 3. Proxy Options
   const [useProxy, setUseProxy] = useState(false);
-  const [proxyType, setProxyType] = useState('HTTP');
+  const [proxyType, setProxyType] = useState<'HTTP' | 'HTTPS' | 'SOCKS5'>('HTTP');
   const [proxyUrl, setProxyUrl] = useState('');
   const [proxyUser, setProxyUser] = useState('');
   const [proxyPassword, setProxyPassword] = useState('');
@@ -205,9 +205,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
   const [caseSensitiveExclusions, setCaseSensitiveExclusions] = useState(false);
 
   // 6. Custom Headers
-  const [headers, setHeaders] = useState<{ name: string; value: string }[]>([
-    { name: 'X-Requested-With', value: 'XMLHttpRequest' }
-  ]);
+  const [headers, setHeaders] = useState<{ name: string; value: string }[]>([]);
 
   // Reset profiles on targetType change
   useEffect(() => {
@@ -242,20 +240,19 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
 
       const a = initialConfig.auth;
       if (a) {
-        setAuthType(a.type || 'None');
-        setLoginUrl(a.loginUrl || '');
-        setAuthUsername(a.username || '');
-        setAuthPassword(a.password || '');
-        setBearerToken(a.bearerToken || '');
-        setApiKey(a.apiKey || '');
-        if (a.selectors) {
-          setUsernameSelector(a.selectors.username || '');
-          setPasswordSelector(a.selectors.password || '');
-          setSubmitSelector(a.selectors.submit || '');
-        }
-        setLoggedInIndicator(a.loggedInIndicator || '');
-        setFailureIndicator(a.failureIndicator || '');
-        setUseSessionCookies(!!a.useSessionCookies);
+        // Authentication secrets are intentionally never restored or duplicated.
+        setAuthType('None');
+        setLoginUrl('');
+        setAuthUsername('');
+        setAuthPassword('');
+        setBearerToken('');
+        setApiKey('');
+        setUsernameSelector('');
+        setPasswordSelector('');
+        setSubmitSelector('');
+        setLoggedInIndicator('');
+        setFailureIndicator('');
+        setUseSessionCookies(false);
       }
 
       const p = initialConfig.proxy;
@@ -263,9 +260,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
         setUseProxy(!!p.useProxy);
         setProxyType(p.type || 'HTTP');
         setProxyUrl(p.url || '');
-        setProxyUser(p.username || '');
-        setProxyPassword(p.password || '');
-        setNoProxy(p.noProxy || '');
+        setProxyUser('');
+        setProxyPassword('');
+        setNoProxy('');
       }
 
       const perf = initialConfig.performance;
@@ -408,38 +405,25 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
         return false;
       }
     } else if (evalStep === 3) {
-      if (authType === 'Form Login') {
-        if (!loginUrl.trim()) {
-          setValidationError('Authentication login URL is required.');
-          return false;
-        }
-        if (!authUsername.trim()) {
-          setValidationError('Authentication username is required.');
-          return false;
-        }
-        if (!authPassword.trim()) {
-          setValidationError('Authentication password is required.');
-          return false;
-        }
-      } else if (authType === 'Bearer Token') {
-        if (!bearerToken.trim()) {
-          setValidationError('Bearer token value is required.');
-          return false;
-        }
-      } else if (authType === 'API Key') {
-        if (!apiKey.trim()) {
-          setValidationError('API Key value is required.');
-          return false;
-        }
+      if (authType !== 'None') {
+        setValidationError('Credentialed scanning is unavailable until secure secret storage is configured.');
+        return false;
       }
-
       if (useProxy) {
         if (!proxyUrl.trim()) {
           setValidationError('Proxy URL is required when proxy is enabled.');
           return false;
         }
+        if (proxyUser || proxyPassword || /:\/\/[^/@]+@/.test(proxyUrl)) {
+          setValidationError('Credentialed proxy configuration is not supported.');
+          return false;
+        }
       }
 
+      if (crawlLimit < 10 || crawlLimit > 10000) {
+        setValidationError('Maximum crawl pages must be between 10 and 10,000.');
+        return false;
+      }
       if (requestTimeout < 5 || requestTimeout > 300) {
         setValidationError('Request timeout must be between 5 and 300 seconds.');
         return false;
@@ -454,10 +438,28 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
       }
 
       for (let i = 0; i < headers.length; i++) {
-        if (!headers[i].name.trim()) {
+        const headerName = headers[i].name.trim();
+        if (!headerName) {
           setValidationError(`Custom Header name on index ${i + 1} cannot be empty.`);
           return false;
         }
+        const forbiddenHeaders = new Set([
+          'authorization', 'connection', 'content-length', 'cookie', 'forwarded',
+          'host', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding',
+          'upgrade', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto'
+        ]);
+        if (forbiddenHeaders.has(headerName.toLowerCase())) {
+          setValidationError(`Custom header ${headerName} is not allowed.`);
+          return false;
+        }
+        if (/\r|\n/.test(headerName) || /\r|\n/.test(headers[i].value)) {
+          setValidationError('Custom headers cannot contain line breaks.');
+          return false;
+        }
+      }
+      if (crawlExternal && headers.length > 0) {
+        setValidationError('Custom headers cannot be combined with external-link crawling.');
+        return false;
       }
     }
     return true;
@@ -546,7 +548,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
             respectRobots,
             subdomains: crawlSubdomains,
             externalLinks: crawlExternal,
+            discoverForms,
             queryParams: allowQueryParams,
+            ignoreQueryParams,
             userAgent,
             customUserAgent: customUserAgent || undefined,
             delay: requestDelay,
@@ -615,7 +619,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
             respectRobots,
             subdomains: crawlSubdomains,
             externalLinks: crawlExternal,
+            discoverForms,
             queryParams: allowQueryParams,
+            ignoreQueryParams,
             userAgent,
             customUserAgent: customUserAgent || undefined,
             delay: requestDelay,
@@ -1462,7 +1468,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           <label className="block text-body-sm font-bold text-text-secondary uppercase">Crawling Depth</label>
                           <select
                             value={crawlingDepth}
-                            onChange={(e) => setCrawlingDepth(e.target.value)}
+                            onChange={(e) => setCrawlingDepth(e.target.value as typeof crawlingDepth)}
                             className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                           >
                             <option>Shallow (1 level)</option>
@@ -1539,6 +1545,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                             type="text"
                             value={allowQueryParams}
                             onChange={(e) => setAllowQueryParams(e.target.value)}
+                            disabled
+                            title="Allowed-query allowlists are not supported in configuration version 1."
                             placeholder="e.g., id, page, category"
                             className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                           />
@@ -1559,7 +1567,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           <label className="block text-body-sm font-bold text-text-secondary uppercase">User Agent</label>
                           <select
                             value={userAgent}
-                            onChange={(e) => setUserAgent(e.target.value)}
+                            onChange={(e) => setUserAgent(e.target.value as typeof userAgent)}
                             className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                           >
                             <option>CipherLens Default</option>
@@ -1595,16 +1603,16 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           <label className="block text-body-sm font-bold text-text-secondary uppercase">Authentication Type</label>
                           <select
                             value={authType}
-                            onChange={(e) => setAuthType(e.target.value)}
-                            className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
+                            onChange={(e) => setAuthType(e.target.value as typeof authType)}
+                            disabled
+                            aria-describedby="authentication-version-note"
+                            className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-muted text-xs text-text-muted cursor-not-allowed"
                           >
                             <option>None</option>
-                            <option>Form Login</option>
-                            <option>Basic Auth</option>
-                            <option>Bearer Token</option>
-                            <option>Cookie Session</option>
-                            <option>API Key</option>
                           </select>
+                          <p id="authentication-version-note" className="text-body-xs text-text-muted">
+                            Credentialed scanning is unavailable until encrypted secret storage is configured.
+                          </p>
                         </div>
 
                         {authType === 'Form Login' && (
@@ -1726,8 +1734,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                         <div className="pt-4 border-t border-border-warm flex items-center justify-between">
                           <button
                             type="button"
-                            onClick={() => alert('Cookie upload helper initialized.')}
-                            className="px-4 py-2 border border-border-warm bg-bg-primary hover:bg-bg-primary font-bold text-body-sm text-text-primary"
+                            disabled
+                            className="px-4 py-2 border border-border-warm bg-bg-muted font-bold text-body-sm text-text-muted cursor-not-allowed"
                           >
                             Upload Cookies File
                           </button>
@@ -1773,7 +1781,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                             <label className="block text-body-sm font-bold text-text-secondary uppercase">Proxy Type</label>
                             <select
                               value={proxyType}
-                              onChange={(e) => setProxyType(e.target.value)}
+                              onChange={(e) => setProxyType(e.target.value as typeof proxyType)}
                               className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                             >
                               <option>HTTP</option>
@@ -1799,7 +1807,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                               type="text"
                               value={proxyUser}
                               onChange={(e) => setProxyUser(e.target.value)}
-                              className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
+                              disabled
+                              title="Credentialed proxies are not supported in configuration version 1."
+                              className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-muted text-xs text-text-muted cursor-not-allowed"
                             />
                           </div>
 
@@ -1809,7 +1819,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                               type="password"
                               value={proxyPassword}
                               onChange={(e) => setProxyPassword(e.target.value)}
-                              className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
+                              disabled
+                              title="Credentialed proxies are not supported in configuration version 1."
+                              className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-muted text-xs text-text-muted cursor-not-allowed"
                             />
                           </div>
 
@@ -1819,6 +1831,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                               type="text"
                               value={noProxy}
                               onChange={(e) => setNoProxy(e.target.value)}
+                              disabled
+                              title="No-proxy routing is not supported in configuration version 1."
                               placeholder="localhost, 127.0.0.1, *.local"
                               className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                             />
@@ -1827,8 +1841,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           <div className="col-span-2 pt-2 border-t border-border-warm flex justify-end">
                             <button
                               type="button"
-                              onClick={() => alert('Proxy connection test passed.')}
-                              className="px-4 py-2 border border-border-warm bg-bg-primary hover:bg-bg-primary rounded-xl font-bold text-body-sm text-text-primary"
+                              disabled
+                              title="Proxy testing requires a server-side validation endpoint."
+                              className="px-4 py-2 border border-border-warm bg-bg-muted rounded-xl font-bold text-body-sm text-text-muted cursor-not-allowed"
                             >
                               Test Proxy Connection
                             </button>
@@ -1863,6 +1878,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                             type="number"
                             value={connTimeout}
                             onChange={(e) => setConnTimeout(Number(e.target.value))}
+                            disabled
+                            title="The bundled tools expose a combined request timeout only."
                             className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                           />
                         </div>
@@ -1913,6 +1930,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                             type="number"
                             value={retryDelay}
                             onChange={(e) => setRetryDelay(Number(e.target.value))}
+                            disabled
+                            title="Explicit retry delay is not supported by the bundled tools."
                             className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                           />
                         </div>
@@ -1936,6 +1955,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                             type="checkbox"
                             checked={respectRetryAfter}
                             onChange={(e) => setRespectRetryAfter(e.target.checked)}
+                            disabled
                             className="w-4 h-4 cursor-pointer text-info accent-blue-600"
                           />
                         </div>
@@ -1979,6 +1999,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           <textarea
                             value={excludedMimeTypes}
                             onChange={(e) => setExcludedMimeTypes(e.target.value)}
+                            disabled
+                            title="MIME-type exclusions are not supported in configuration version 1."
                             placeholder="e.g.&#10;image/*&#10;application/zip"
                             rows={2}
                             className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary font-mono"
@@ -1992,6 +2014,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                               type="text"
                               value={excludeQueryParams}
                               onChange={(e) => setExcludeQueryParams(e.target.value)}
+                              disabled
+                              title="Named query-parameter exclusions are not supported; use Ignore Query Parameters."
                               placeholder="e.g., utm_source, tracking_id"
                               className="w-full px-3 py-2 border border-border-warm rounded-xl bg-bg-primary text-xs text-text-primary"
                             />
@@ -2018,6 +2042,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                             type="checkbox"
                             checked={respectExclusionsSitemap}
                             onChange={(e) => setRespectExclusionsSitemap(e.target.checked)}
+                            disabled
                             className="w-4 h-4 cursor-pointer text-info accent-blue-600"
                           />
                         </div>
@@ -2085,6 +2110,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                         ))}
 
                         <button
+                          type="button"
                           onClick={handleAddHeader}
                           className="px-3 py-2 border border-dashed border-border-warm hover:border-accent text-xs font-bold text-text-secondary hover:text-accent rounded-xl flex items-center gap-1.5 w-full justify-center transition-colors cursor-pointer"
                         >
@@ -2094,14 +2120,18 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
 
                       <div className="pt-4 border-t border-border-warm flex gap-3 justify-end">
                         <button
-                          onClick={() => alert('Import headers helper initiated.')}
-                          className="px-3 py-1.5 border border-border-warm bg-bg-primary hover:bg-bg-primary text-body-sm font-bold text-text-primary rounded-lg shadow-sm cursor-pointer"
+                          type="button"
+                          disabled
+                          title="Header import is not supported in configuration version 1."
+                          className="px-3 py-1.5 border border-border-warm bg-bg-muted text-body-sm font-bold text-text-muted rounded-lg cursor-not-allowed"
                         >
                           Import Headers
                         </button>
                         <button
-                          onClick={() => alert('Export headers helper initiated.')}
-                          className="px-3 py-1.5 border border-border-warm bg-bg-primary hover:bg-bg-primary text-body-sm font-bold text-text-primary rounded-lg shadow-sm cursor-pointer"
+                          type="button"
+                          disabled
+                          title="Header export is not supported in configuration version 1."
+                          className="px-3 py-1.5 border border-border-warm bg-bg-muted text-body-sm font-bold text-text-muted rounded-lg cursor-not-allowed"
                         >
                           Export Headers
                         </button>
@@ -2114,7 +2144,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                 <div className="col-span-3 space-y-6">
                   <div className="bg-bg-primary p-6 rounded-2xl border border-border-warm shadow-xs space-y-4">
                     <p className="font-bold text-text-primary text-body-sm uppercase tracking-wider">Configuration Summary</p>
-                    <p className="text-body-xs font-medium text-text-muted leading-relaxed">Applied to {selectedModules.length} modules</p>
+                    <p className="text-body-xs font-medium text-text-muted leading-relaxed">Applied only to compatible selected modules</p>
 
                     <div className="space-y-2 pt-2">
                       <p className="font-bold text-body-sm text-text-secondary">Active Configuration:</p>
@@ -2153,8 +2183,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                     </div>
 
                     <button
-                      onClick={() => alert('Viewing all settings details...')}
-                      className="w-full py-2 border border-border-warm bg-bg-primary hover:bg-bg-primary text-body-sm font-bold text-text-primary rounded-xl cursor-pointer"
+                      type="button"
+                      disabled
+                      className="w-full py-2 border border-border-warm bg-bg-muted text-body-sm font-bold text-text-muted rounded-xl cursor-not-allowed"
                     >
                       View All Settings
                     </button>
@@ -2162,7 +2193,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
 
                   <div className="p-4 rounded-xl border border-info/30 bg-info-bg/50 text-body-sm text-blue-800 space-y-1 shadow-xs">
                     <p className="font-bold flex items-center gap-1.5">💡 Configuration Tip</p>
-                    <p className="leading-relaxed">These settings will be applied only to the selected modules. Each module uses these options during scanning.</p>
+                    <p className="leading-relaxed">Supported settings are applied only to compatible scanner modules. Disabled controls are excluded from configuration version 1.</p>
                   </div>
                 </div>
               </div>

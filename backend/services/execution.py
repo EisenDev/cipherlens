@@ -19,6 +19,7 @@ except ImportError:
 
 from manager import ScannerManager
 from result import ScannerStatus
+from services.scan_options import UnsafeScanConfiguration, normalize_scan_options
 
 logger = logging.getLogger("cipherlens.execution")
 
@@ -68,7 +69,7 @@ class ScanExecutionService:
                         configs[record.name] = {}
 
             # Construct scan options
-            options = {
+            grouped_options = {
                 "crawling": configs.get("crawling", {}),
                 "auth": configs.get("auth", {}),
                 "proxy": configs.get("proxy", {}),
@@ -76,6 +77,10 @@ class ScanExecutionService:
                 "exclusions": configs.get("exclusions", {}),
                 "headers": configs.get("headers", []),
             }
+            try:
+                options = normalize_scan_options(grouped_options)
+            except UnsafeScanConfiguration as error:
+                raise ValueError(f"Stored scan configuration is unsafe: {error}") from error
 
             # 3. Resolve modules to run
             target_type = scan.asset.type.upper()

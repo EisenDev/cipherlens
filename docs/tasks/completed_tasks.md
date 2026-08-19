@@ -275,3 +275,16 @@ This log records all completed tasks and their resolution history.
 * **Task-011: Complete the Scan Management UX (Phase 2.1)**
   * **Date Completed:** 2026-07-06
   * **Resolution:** Fully implemented Phase 2.1 requirements. Added new backend Pydantic models for module progress and logs schemas. Created endpoints for cancel, retry, progress, and logs in FastAPI scans router. Wrote reusable React components for ConfirmationDialog, ProgressModal, QueueDetailsModal, ErrorModal, EmptyState, and ScanActionMenu. Integrated modal triggers and state variables into ScansPage and NewScanModal to support cancel, retry, delete, and duplicate actions. Confirmed all backend unit tests pass and React application builds successfully.
+# [DEBT-001] Wire Advanced Scan Configuration Through the Scanner Pipeline
+
+- **Date Completed:** 2026-08-19
+- **Resolution:** Added the version 1 advanced configuration contract, typed API
+  schemas, safety validation, versioned persistence, backend runtime adapter,
+  Katana/httpx option propagation, robots/exclusion handling, command redaction,
+  strict frontend types, honest disabled states for unsupported secret-bearing
+  controls, and automated backend/scanner tests.
+- **Verification:** Backend `25 passed, 1 skipped`; scanner `52 passed`; frontend
+  production build passed. Repository-wide frontend lint remains blocked by its
+  existing 91-error baseline across unrelated files.
+- **Documentation:** `docs/decisions/ADR-006-advanced-scan-configuration.md` and
+  `docs/development/advanced-scan-configuration.md`.

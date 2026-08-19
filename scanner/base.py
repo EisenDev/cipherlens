@@ -241,5 +241,19 @@ class BaseScanner(abc.ABC):
         """Read a per-scan option with fallback to the given default."""
         return self.options.get(key, default)
 
+    @staticmethod
+    def _redacted_command(command: list[str], value_flags: set[str]) -> str:
+        """Render a tool command without values belonging to sensitive flags."""
+        rendered: list[str] = []
+        redact_next = False
+        for item in command:
+            if redact_next:
+                rendered.append("<redacted>")
+                redact_next = False
+                continue
+            rendered.append(str(item))
+            redact_next = item in value_flags
+        return " ".join(rendered)
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} target={self.target!r}>"
