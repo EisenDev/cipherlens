@@ -62,6 +62,11 @@ def run(
     )
 
     result_dict = result.model_dump(mode="json")
+    result_dict["all_findings"] = [
+        finding.model_dump(mode="json") for finding in result.all_findings
+    ]
+    result_dict["total_findings"] = result.total_findings
+    result_dict["risk_score"] = result.risk_score
 
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
@@ -143,7 +148,7 @@ if __name__ == "__main__":
             "scan_id": result.get("scan_id"),
             "target": result.get("target"),
             "status": result.get("overall_status"),
-            "total_findings": len(result.get("all_findings", [])),
+            "total_findings": result.get("total_findings", 0),
             "risk_score": result.get("risk_score"),
             "duration_seconds": result.get("total_duration_seconds"),
             "scanners_run": len(result.get("scanner_results", [])),

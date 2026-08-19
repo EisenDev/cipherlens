@@ -6,6 +6,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **SSL/TLS production runtime:** Added the DNS resolver utility required by
+  `testssl.sh`, bounded CDN targets to one resolved IP, separated SSL certificate and
+  vulnerability checks from the TLS protocol module, and preserved actionable timeout and
+  runtime errors.
+- **Truthful scanner status:** Preserved `PARTIAL`, `TIMEOUT`, and `SKIPPED` module states
+  through backend persistence, scoring, and progress UI instead of reporting every
+  non-success result as a generic failure.
+- **Evidence-backed technology inventory:** Replaced broad keyword matching with specific
+  header/body signatures, categorized frontend/backend/data-store/edge technologies, and
+  attached signal source and confidence to every detected component. Hidden backend and
+  database products are explicitly reported as not externally detectable rather than
+  guessed.
+- **Coverage integrity:** Ten scaffold-only scanner modules now report `SKIPPED` instead of
+  false `SUCCESS`, preventing unexecuted checks from inflating audit coverage.
+- **Scanner result serialization:** Included computed findings and risk score in runner JSON
+  output and summaries.
+
+### Added
+
+- Scanner reliability/evidence contract and regression tests for TLS runtime failures,
+  bounded execution, target differentiation, and technology provenance.
+
 ## [0.9.19] - 2026-07-10
 
 ### Fixed

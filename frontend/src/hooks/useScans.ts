@@ -134,7 +134,7 @@ export function usePatchScan() {
 
 export interface ModuleProgress {
   name: string;
-  status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'TIMEOUT' | 'SKIPPED';
   progress: number;
 }
 
@@ -225,7 +225,7 @@ export interface RealScanStatus {
   failedModules: string[];
   queuedModules: string[];
   modules: Record<string, {
-    status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'CANCELLED';
+    status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'TIMEOUT' | 'SKIPPED' | 'CANCELLED';
     duration: number | null;
     error: string | null;
   }>;
@@ -285,6 +285,7 @@ export interface RegisteredScanner {
   tool_version: string;
   target_types: string[];
   output_format: string;
+  implemented?: boolean;
 }
 
 export interface ScanProfileData {
@@ -369,4 +370,3 @@ export function usePublicScanResults(shareToken: string | null, enabled: boolean
     enabled: !!shareToken && enabled,
   });
 }
-

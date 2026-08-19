@@ -68,6 +68,7 @@ class TLSScanner(BaseScanner):
             "--jsonfile", str(output_file),
             "--color", "0",
             "--quiet",
+            "--ip", "one",
             "--nodns", "min",
             clean_target,
         ]
@@ -116,9 +117,19 @@ class TLSScanner(BaseScanner):
             exit_code in (246, 252, 254)
         )
 
-        if is_connection_error:
-            status = ScannerStatus.SUCCESS
-            logger.info("TLSScanner: target connection failed/refused. Target likely does not support SSL/TLS on port 443.")
+        error_message = None
+        if exit_code == 249 and "nslookup" in output_combined:
+            status = ScannerStatus.FAILED
+            error_message = (
+                "TLS scanner runtime is missing a DNS resolver utility "
+                "(dig, host, drill, or nslookup)."
+            )
+        elif exit_code == -1 and "TIMEOUT" in output_combined.upper():
+            status = ScannerStatus.TIMEOUT
+            error_message = "TLS protocol scan timed out before all checks completed."
+        elif is_connection_error:
+            status = ScannerStatus.FAILED
+            error_message = "Could not establish a TLS connection to the target."
         elif exit_code in (0, 1):
             status = ScannerStatus.SUCCESS
         else:
@@ -134,6 +145,7 @@ class TLSScanner(BaseScanner):
             tool_command=" ".join(str(c) for c in command),
             tool_exit_code=exit_code,
             tool_raw_output=truncate_output(stdout + stderr),
+            error_message=error_message,
         )
 
     def metadata(self) -> Dict[str, Any]:

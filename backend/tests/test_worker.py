@@ -9,6 +9,22 @@ from services.queue import ScanQueue
 from services.execution import ScanExecutionService
 from result import ScannerStatus, ScannerResult, Finding, Severity
 
+
+@pytest.mark.parametrize(
+    ("scanner_status", "record_status"),
+    [
+        (ScannerStatus.SUCCESS, "COMPLETED"),
+        (ScannerStatus.PARTIAL, "PARTIAL"),
+        (ScannerStatus.FAILED, "FAILED"),
+        (ScannerStatus.TIMEOUT, "TIMEOUT"),
+        (ScannerStatus.SKIPPED, "SKIPPED"),
+    ],
+)
+def test_module_status_mapping_preserves_scanner_outcome(
+    scanner_status, record_status
+):
+    assert ScanExecutionService._module_record_status(scanner_status) == record_status
+
 @pytest.fixture(scope="module")
 def db_session():
     # Make sure all tables are created
