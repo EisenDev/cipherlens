@@ -102,6 +102,7 @@ def test_new_scan_flow():
         "targetUrl": "https://newtarget.com",
         "targetType": "WEBSITE",
         "scanType": "QUICK",
+        "modules": ["headers", "ssl"],
         "scanName": "New Target Quick Scan",
         "scanTags": "custom-tag",
         "crawling": {
@@ -135,7 +136,7 @@ def test_new_scan_flow():
     assert prog_res.status_code == 200
     assert prog_res.json()["scanId"] == scan_id
     assert prog_res.json()["status"] in ["QUEUED", "PREPARING", "RUNNING", "COMPLETED"]
-    assert len(prog_res.json()["modules"]) == 7
+    assert len(prog_res.json()["modules"]) == 2
 
     # 4. Test logs endpoint
     log_res = client.get(f"/api/scans/{scan_id}/logs", headers=headers)
@@ -188,6 +189,12 @@ def test_extension_endpoints():
     scanner_names = [s["name"] for s in res_json]
     assert "headers" in scanner_names
     assert "secrets" in scanner_names
+    selectable_scanner_names = {
+        scanner["name"] for scanner in res_json if scanner["selectable"]
+    }
+    assert "ssl" in selectable_scanner_names
+    assert "tls" not in selectable_scanner_names
+    assert "waf" not in selectable_scanner_names
 
     # 2. Test get scan profiles list
     response = client.get("/api/scans/scan-profiles/list", headers=headers)
@@ -199,6 +206,43 @@ def test_extension_endpoints():
     assert "STANDARD" in profile_ids
     assert "ADVANCED" in profile_ids
     assert "CUSTOM" in profile_ids
+    for profile in res_json:
+        assert set(profile["modules"]["WEBSITE"]) <= selectable_scanner_names
+
+
+def test_create_scan_rejects_modules_outside_registry_selection_contract():
+    unique_email = f"testmodules-{uuid.uuid4().hex[:8]}@example.com"
+    signup_res = client.post(
+        "/api/auth/signup",
+        json={
+            "fullName": "Module Contract User",
+            "email": unique_email,
+            "password": "securepassword123",
+            "companyName": "Module Contract Corp",
+        },
+    )
+    headers = {"Authorization": f"Bearer {signup_res.json()['accessToken']}"}
+    base_payload = {
+        "targetUrl": "https://example.com",
+        "targetType": "WEBSITE",
+        "scanType": "CUSTOM",
+    }
+
+    for modules, expected_detail in (
+        ([], "at least one"),
+        (["headers", "headers"], "duplicate"),
+        (["unknown-module"], "unknown"),
+        (["waf"], "not implemented"),
+        (["tls"], "not selectable"),
+        (["repository"], "does not support"),
+    ):
+        response = client.post(
+            "/api/scans",
+            json={**base_payload, "modules": modules},
+            headers=headers,
+        )
+        assert response.status_code == 400
+        assert expected_detail in response.json()["detail"].lower()
 
 def test_scans_validations():
     # Setup user
@@ -238,6 +282,7 @@ def test_scans_validations():
         "targetUrl": "https://validtarget.com",
         "targetType": "WEBSITE",
         "scanType": "QUICK",
+        "modules": ["headers"],
         "performance": {
             "timeout": 301 # > 300 limit
         }
@@ -266,6 +311,7 @@ def test_scan_schedules_crud():
         "targetUrl": "https://example.com",
         "targetType": "WEBSITE",
         "scanType": "QUICK",
+        "modules": ["headers", "ssl"],
         "frequency": "WEEKLY",
         "startDate": "2026-07-15",
         "startTime": "12:00",
@@ -404,4 +450,3 @@ def test_profile_and_password_update():
     login_res = client.post("/api/auth/login", json=login_data)
     assert login_res.status_code == 200
     assert "accessToken" in login_res.json()
-

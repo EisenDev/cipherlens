@@ -286,6 +286,8 @@ export interface RegisteredScanner {
   target_types: string[];
   output_format: string;
   implemented?: boolean;
+  selectable?: boolean;
+  superseded_by?: string;
 }
 
 export interface ScanProfileData {

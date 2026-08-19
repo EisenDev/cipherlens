@@ -14,6 +14,9 @@
 - **Acceptance:** Module coverage reflects completed checks, failures are actionable,
   technology claims include provenance/confidence, and fixture targets produce distinct
   audit outputs.
+- **Module selection follow-up:** Make the scanner registry authoritative for new scan
+  and schedule selections. Keep presets as editable convenience selections, reject
+  invalid module IDs at the backend, and remove overlapping TLS selection.
 
 ## SPRINT 1 & 2 Completed Deliverables
 

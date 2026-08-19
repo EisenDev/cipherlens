@@ -19,6 +19,22 @@ Every non-success result must include a safe, actionable error message. Raw tool
 may be retained for operator diagnostics but must not expose credentials or authorization
 headers.
 
+## Module selection contract
+
+The scanner registry is the single source of truth for modules offered by the new-scan
+wizard. A module is selectable only when registry metadata marks it implemented,
+selectable, and compatible with the chosen target type.
+
+Presets are convenience selections over that live catalog. Applying a preset selects
+only its currently available module IDs; it does not lock the module controls or add
+hidden scanners. Editing the selected set changes the scan type to `CUSTOM`.
+
+New scan and schedule requests must contain at least one unique module ID. The backend
+rejects duplicate, unknown, unimplemented, non-selectable, and target-incompatible IDs
+and persists exactly the validated selection. The comprehensive `ssl` scanner owns
+certificate, protocol, cipher, and vulnerability checks; the overlapping `tls` scanner
+is retained for legacy execution but is not offered for new selections.
+
 ## Evidence contract
 
 Every finding must be derived from the current target and contain:

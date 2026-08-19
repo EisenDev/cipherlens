@@ -13,33 +13,6 @@ interface NewScanModalProps {
   mode?: 'scan' | 'schedule';
 }
 
-interface ModuleItem {
-  id: string;
-  name: string;
-  recommended?: boolean;
-  optional?: boolean;
-  severity: 'Low' | 'Medium' | 'High';
-  duration: string;
-  description: string;
-  targetTypes: ('WEBSITE' | 'REPOSITORY')[];
-}
-
-const MODULES_CATALOG: ModuleItem[] = [
-  { id: 'owasp', name: 'OWASP Top 10', recommended: true, severity: 'Medium', duration: '5-15 min', description: 'Detect common web vulnerabilities based on OWASP Top 10.', targetTypes: ['WEBSITE'] },
-  { id: 'crawler', name: 'Crawler', recommended: true, severity: 'Medium', duration: '3-10 min', description: 'Crawl and discover URLs and endpoints.', targetTypes: ['WEBSITE'] },
-  { id: 'headers', name: 'Security Headers', recommended: true, severity: 'Low', duration: '~30 sec', description: 'Check HTTP security headers configuration.', targetTypes: ['WEBSITE'] },
-  { id: 'ssl', name: 'SSL/TLS Analysis', recommended: true, severity: 'Low', duration: '1-2 min', description: 'Analyze SSL/TLS configuration and certificates.', targetTypes: ['WEBSITE'] },
-  { id: 'dns', name: 'DNS Analysis', recommended: true, severity: 'Low', duration: '1-2 min', description: 'Check DNS records and configuration.', targetTypes: ['WEBSITE'] },
-  { id: 'technology', name: 'Technology Detection', recommended: true, severity: 'Low', duration: '1-2 min', description: 'Detect technologies, frameworks and libraries.', targetTypes: ['WEBSITE'] },
-  { id: 'secrets', name: 'Secrets Detection', recommended: true, severity: 'Medium', duration: '2-5 min', description: 'Scan for exposed secrets and API keys.', targetTypes: ['WEBSITE', 'REPOSITORY'] },
-  { id: 'ports', name: 'Port Scan', optional: true, severity: 'Medium', duration: '2-10 min', description: 'Scan for open TCP ports and services.', targetTypes: ['WEBSITE'] },
-  { id: 'subdomains', name: 'Subdomain Enumeration', optional: true, severity: 'Medium', duration: '2-5 min', description: 'Discover subdomains for the target.', targetTypes: ['WEBSITE'] },
-  { id: 'javascript', name: 'JavaScript Analysis', optional: true, severity: 'Medium', duration: '2-5 min', description: 'Analyze JavaScript files for secrets and endpoints.', targetTypes: ['WEBSITE', 'REPOSITORY'] },
-  { id: 'directory_discovery', name: 'Directory & File Discovery', optional: true, severity: 'Medium', duration: '2-5 min', description: 'Discover common directories and sensitive exposed files.', targetTypes: ['WEBSITE'] },
-  { id: 'waf', name: 'WAF Detection', optional: true, severity: 'Low', duration: '~30 sec', description: 'Detect Web Application Firewall presence and configuration.', targetTypes: ['WEBSITE'] },
-  { id: 'repository', name: 'Repository Analysis', recommended: true, severity: 'High', duration: '2-5 min', description: 'Run static analysis (SAST) on the repository code.', targetTypes: ['REPOSITORY'] },
-];
-
 interface ScanProfileItem {
   id: 'QUICK' | 'STANDARD' | 'ADVANCED' | 'CUSTOM';
   name: string;
@@ -50,13 +23,6 @@ interface ScanProfileItem {
   duration: string;
   description: string;
 }
-
-const STATIC_SCAN_PROFILES: ScanProfileItem[] = [
-  { id: 'QUICK', name: 'Quick Scan', icon: '⚡', plan: 'Free', badgeType: 'free', configurable: '❌ Config: None', duration: '~30 sec', description: 'Fast security and header checks.' },
-  { id: 'STANDARD', name: 'Standard Scan', icon: '🛡️', plan: 'Basic', badgeType: 'basic', configurable: '❌ Config: None', duration: '~2–5 min', description: 'Recommended for small websites.' },
-  { id: 'ADVANCED', name: 'Advanced Scan', icon: '🚀', plan: 'Premium', badgeType: 'premium', configurable: '⚙️ Config: Only', duration: '~5–15 min', description: 'Professional security assessment.' },
-  { id: 'CUSTOM', name: 'Custom Scan', icon: '🎯', plan: 'Premium', badgeType: 'premium', configurable: '✅ Full Control', duration: 'Variable', description: 'Tailor modules to your exact needs.' },
-];
 
 const getModuleDisplayName = (name: string): string => {
   const map: Record<string, string> = {
@@ -109,8 +75,12 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
   const createScan = useCreateScan();
   const createSchedule = useCreateSchedule();
   const navigate = useNavigate();
-  const { data: registeredScanners = [] } = useRegisteredScanners();
-  const { data: scanProfiles = [] } = useScanProfiles();
+  const {
+    data: registeredScanners = [],
+    isLoading: isScannerCatalogLoading,
+    isError: isScannerCatalogError,
+  } = useRegisteredScanners();
+  const { data: scanProfiles = [], isLoading: isProfilesLoading } = useScanProfiles();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [targetType, setTargetType] = useState<'WEBSITE' | 'REPOSITORY'>('WEBSITE');
@@ -223,6 +193,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
       setTargetType(initialConfig.targetType || 'WEBSITE');
       setScanName(initialConfig.scanName || '');
       setScanTags(initialConfig.scanTags || '');
+      setScanProfile('CUSTOM');
+      setSelectedModules(initialConfig.modules || []);
       setCurrentStep(1);
       setValidationError(null);
 
@@ -314,32 +286,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
 
   const applyProfileModules = (profileId: 'QUICK' | 'STANDARD' | 'ADVANCED' | 'CUSTOM') => {
     const profile = scanProfiles.find(p => p.id === profileId);
-    if (profile) {
-      const activeMods = profile.modules[targetType] || [];
-      setSelectedModules(activeMods);
-    } else {
-      // Static Fallback mapping if API profiles list is loading
-      if (targetType === 'WEBSITE') {
-        if (profileId === 'QUICK') {
-          setSelectedModules(['owasp', 'headers', 'ssl']);
-        } else if (profileId === 'STANDARD') {
-          setSelectedModules(['owasp', 'headers', 'ssl', 'dns', 'technology', 'crawler']);
-        } else if (profileId === 'ADVANCED') {
-          setSelectedModules(['owasp', 'crawler', 'headers', 'ssl', 'dns', 'technology', 'ports', 'subdomains', 'waf']);
-        } else if (profileId === 'CUSTOM') {
-          setSelectedModules(['owasp', 'crawler', 'headers', 'ssl', 'dns', 'technology', 'ports', 'subdomains', 'waf']);
-        }
-      } else {
-        // REPOSITORY Target
-        if (profileId === 'QUICK') {
-          setSelectedModules(['secrets']);
-        } else if (profileId === 'STANDARD') {
-          setSelectedModules(['secrets']);
-        } else if (profileId === 'ADVANCED' || profileId === 'CUSTOM') {
-          setSelectedModules(['secrets', 'repository']);
-        }
-      }
-    }
+    const selectableIds = new Set(activeScanners.map(scanner => scanner.id));
+    const presetModules = profile?.modules[targetType] || [];
+    setSelectedModules(presetModules.filter(moduleId => selectableIds.has(moduleId)));
   };
 
   const handleSelectProfile = (profile: 'QUICK' | 'STANDARD' | 'ADVANCED' | 'CUSTOM') => {
@@ -399,12 +348,13 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
         }
       }
     } else if (evalStep === 2) {
-      if (scanProfile === null) {
-        setValidationError('Please select a Scan Profile before continuing.');
-        return false;
-      }
       if (selectedModules.length === 0) {
         setValidationError('Please enable at least one scanner module.');
+        return false;
+      }
+      const selectableIds = new Set(activeScanners.map(scanner => scanner.id));
+      if (selectedModules.some(moduleId => !selectableIds.has(moduleId))) {
+        setValidationError('This selection contains a module that is no longer available. Please choose the modules again.');
         return false;
       }
     } else if (evalStep === 3) {
@@ -469,11 +419,11 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
         return !scheduleName.trim() || !frequency || !startDate || !startTime;
       }
       if (currentStep === 3) {
-        return scanProfile === null;
+        return selectedModules.length === 0 || isScannerCatalogLoading;
       }
     } else {
       if (currentStep === 2) {
-        return scanProfile === null;
+        return selectedModules.length === 0 || isScannerCatalogLoading;
       }
     }
     return false;
@@ -515,7 +465,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
   };
 
   const handleToggleModule = (modId: string) => {
-    if (scanProfile !== 'CUSTOM') return; // Read-only unless in CUSTOM mode
+    setScanProfile('CUSTOM');
     if (selectedModules.includes(modId)) {
       setSelectedModules(selectedModules.filter(id => id !== modId));
     } else {
@@ -671,17 +621,16 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
         onClose();
         navigate(`/scan/${result.id}/progress`);
       }
-    } catch (e: any) {
-      setValidationError(e.message || 'An error occurred while creating the scan.');
+    } catch (error: unknown) {
+      setValidationError(error instanceof Error ? error.message : 'An error occurred while creating the scan.');
     }
   };
 
   if (!isOpen) return null;
 
   // Filter modules dynamically using fetched registry list if available
-  const activeScanners = registeredScanners.length > 0
-    ? registeredScanners.filter(
-        s => s.implemented !== false && s.target_types.includes(targetType)
+  const activeScanners = registeredScanners.filter(
+        s => s.implemented === true && s.selectable === true && s.target_types.includes(targetType)
       ).map(s => ({
         id: s.name,
         name: getModuleDisplayName(s.name),
@@ -693,33 +642,19 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
         severity: getModuleSeverity(s.name),
         duration: getModuleDuration(s.name),
         status: 'Active'
-      }))
-    : MODULES_CATALOG.filter(m => m.targetTypes.includes(targetType)).map(m => ({
-        id: m.id,
-        name: m.name,
-        description: m.description,
-        tool: m.id === 'owasp' ? 'nuclei' : m.id === 'crawler' ? 'katana' : 'other',
-        toolVersion: 'v1.0.0',
-        targetTypes: m.targetTypes,
-        category: getModuleCategory(m.id),
-        severity: m.severity,
-        duration: m.duration,
-        status: 'Active'
       }));
 
   // Profiles mapping
-  const activeProfiles = scanProfiles.length > 0
-    ? scanProfiles.map(p => ({
+  const activeProfiles: ScanProfileItem[] = scanProfiles.map(p => ({
         id: p.id,
         name: p.name,
         plan: p.plan,
         badgeType: p.badgeType,
         icon: p.id === 'QUICK' ? '⚡' : p.id === 'STANDARD' ? '🛡️' : p.id === 'ADVANCED' ? '🚀' : '🎯',
-        configurable: p.configurable ? (p.id === 'ADVANCED' ? '⚙️ Config: Only' : '✅ Full Control') : '❌ Config: None',
+        configurable: '✓ Modules editable',
         duration: p.duration,
         description: p.description
-      }))
-    : STATIC_SCAN_PROFILES;
+      }));
 
   return (
     <AnimatePresence>
@@ -1215,18 +1150,21 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
               </div>
             )}
 
-            {/* STEP 2: Select Scan Profiles & Modules */}
+            {/* STEP 2: Select authoritative scanner modules, optionally via a preset */}
             {((mode === 'scan' && currentStep === 2) || (mode === 'schedule' && currentStep === 3)) && (
               <div className="grid grid-cols-12 gap-6 items-start">
                 <div className="col-span-8 space-y-6">
-                  {/* Select Scan Profile Card */}
+                  {/* Presets only apply selections from the live module catalog. */}
                   <div className="bg-bg-primary p-6 rounded-2xl border border-border-warm shadow-xs space-y-4">
                     <div>
-                      <p className="font-bold text-text-primary text-body-sm uppercase tracking-wider">Select Scan Profile</p>
-                      <p className="text-body-sm text-text-secondary mt-1">Choose a scan plan matching your billing profile and target scope.</p>
+                      <p className="font-bold text-text-primary text-body-sm uppercase tracking-wider">Module Presets (Optional)</p>
+                      <p className="text-body-sm text-text-secondary mt-1">Apply a recommended starting set, then adjust any module below.</p>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-3">
+                    {isProfilesLoading ? (
+                      <p className="text-body-sm text-text-muted">Loading module presets…</p>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-3">
                       {activeProfiles.map((prof) => {
                         const isSelected = scanProfile === prof.id;
                         return (
@@ -1262,30 +1200,31 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           </button>
                         );
                       })}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Modules grid card */}
                   <div className="bg-bg-primary p-6 rounded-2xl border border-border-warm shadow-xs space-y-4 relative">
                     <p className="font-bold text-text-primary text-body-sm uppercase tracking-wider">Scanner Modules</p>
                     
-                    {scanProfile === null ? (
+                    {isScannerCatalogLoading ? (
                       <div className="py-12 text-center text-text-muted text-body-sm bg-bg-secondary border border-dashed border-border-warm rounded-2xl flex flex-col items-center justify-center gap-2">
                         <span className="text-2xl">⚡</span>
-                        <p className="font-bold text-text-secondary">Please select a Scan Profile above to activate scanner modules.</p>
+                        <p className="font-bold text-text-secondary">Loading available scanner modules…</p>
+                      </div>
+                    ) : isScannerCatalogError ? (
+                      <div role="alert" className="py-12 text-center text-danger text-body-sm bg-danger-bg border border-danger/30 rounded-2xl">
+                        Scanner modules could not be loaded. Close the wizard and try again.
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-4">
                         {activeScanners.map((item) => {
                           const isSelected = selectedModules.includes(item.id);
-                          const isCustomMode = scanProfile === 'CUSTOM';
                           return (
-                            <div
+                            <label
                               key={item.id}
-                              onClick={() => isCustomMode && handleToggleModule(item.id)}
-                              className={`p-4 rounded-2xl border bg-bg-primary flex gap-3 transition-all duration-350 shadow-xs ${
-                                isCustomMode ? 'cursor-pointer hover:border-border-strong' : 'cursor-not-allowed opacity-80'
-                              } ${
+                              className={`p-4 rounded-2xl border bg-bg-primary flex gap-3 transition-all duration-350 shadow-xs cursor-pointer hover:border-border-strong ${
                                 isSelected ? 'border-blue-600 bg-info-bg/5' : 'border-border-warm'
                               }`}
                             >
@@ -1293,9 +1232,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
-                                  disabled={!isCustomMode}
-                                  onChange={() => {}}
-                                  className="w-4 h-4 text-info accent-blue-600 rounded cursor-pointer disabled:opacity-70"
+                                  onChange={() => handleToggleModule(item.id)}
+                                  className="w-4 h-4 text-info accent-blue-600 rounded cursor-pointer"
                                 />
                               </div>
                               <div className="space-y-1.5 w-full">
@@ -1329,7 +1267,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                                   Category: {item.category} | Severity: {item.severity}
                                 </div>
                               </div>
-                            </div>
+                            </label>
                           );
                         })}
                       </div>
@@ -1349,8 +1287,8 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                         <span className="font-mono text-text-secondary truncate max-w-[160px]">{targetUrl || 'None'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border-warm text-body-sm">
-                        <span className="text-text-muted">Scan Profile:</span>
-                        <span className="font-bold text-info">{scanProfile ? activeProfiles.find(p => p.id === scanProfile)?.name : 'None'}</span>
+                        <span className="text-text-muted">Preset:</span>
+                        <span className="font-bold text-info">{scanProfile && scanProfile !== 'CUSTOM' ? activeProfiles.find(p => p.id === scanProfile)?.name : 'Custom selection'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border-warm text-body-sm">
                         <span className="text-text-muted">Selected Modules:</span>
@@ -1370,7 +1308,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                           ) : null;
                         })}
                         {selectedModules.length === 0 && (
-                          <li className="text-body-sm text-text-muted italic">No modules selected. Select a scan profile above.</li>
+                          <li className="text-body-sm text-text-muted italic">No modules selected. Choose modules directly or apply a preset.</li>
                         )}
                       </ul>
                     </div>
@@ -1379,7 +1317,7 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
                   {/* About modules box */}
                   <div className="bg-bg-primary p-6 rounded-2xl border border-border-warm shadow-xs space-y-2 text-body-sm text-text-secondary">
                     <p className="font-bold text-text-primary flex items-center gap-1.5">ℹ️ About Scanner Modules</p>
-                    <p className="leading-relaxed">Each profile is configured with curated open source engines. Custom Mode allows full control to disable or enable individual modules.</p>
+                    <p className="leading-relaxed">This live list is the source of truth. Presets only select available modules; every checkbox remains editable.</p>
                   </div>
                 </div>
               </div>

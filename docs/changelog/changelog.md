@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Authoritative module selection:** Made the scanner registry the single source of
+  truth for modules offered by new scans and schedules. Presets now apply editable
+  selections over the live catalog, while the backend rejects empty, duplicate,
+  unavailable, overlapping, or target-incompatible selections and persists exactly the
+  validated IDs. The comprehensive SSL/TLS scanner replaces the overlapping TLS-only
+  option for new selections.
+
 - **SSL/TLS production runtime:** Added the DNS resolver utility required by
   `testssl.sh`, bounded CDN targets to one resolved IP, separated SSL certificate and
   vulnerability checks from the TLS protocol module, and preserved actionable timeout and

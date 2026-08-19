@@ -12,6 +12,11 @@ from database.models import User, Asset, Scan, ScanJob, ScanModule, ScanLog, Sca
 from api.deps import get_current_user, get_current_user_optional
 from schemas.schemas import ScanCreate, ScanResponse, PaginatedScans, ScanPatch, ScanProgressResponse, ScanLogsResponse, ModuleProgressSchema, ScanLogItemSchema, ScanResultsResponseSchema
 from services.ai import AIService
+from services.scanner_catalog import (
+    resolved_profile_modules,
+    scanner_metadata,
+    validate_module_selection,
+)
 
 # Dynamically append scanner framework path to sys.path
 SCANNER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "scanner"))
@@ -166,6 +171,8 @@ def create_scan(
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported target type: {asset_type}")
 
+    selected_modules = validate_module_selection(payload.modules, asset_type)
+
     # 2. Authentication Parameters Validation
     if payload.auth:
         auth_type = payload.auth.get("type", "None")
@@ -260,7 +267,7 @@ def create_scan(
         "performance": payload.performance or {},
         "exclusions": payload.exclusions or {},
         "headers": payload.headers or [],
-        "selected_modules": payload.modules or []
+        "selected_modules": selected_modules
     }
     
     for mod_name, mod_config in modules_to_create.items():
@@ -477,94 +484,69 @@ def get_scan_progress(
     if not scan:
         raise HTTPException(status_code=404, detail="Scan record not found.")
         
-    module_names = ["Crawler", "Headers", "SSL", "OWASP", "DNS", "Technology", "Secrets"]
+    module_records = db.query(ScanModule).filter(ScanModule.scanId == scan.id).all()
+    selected_record = next(
+        (record for record in module_records if record.name == "selected_modules"),
+        None,
+    )
+    try:
+        selected_module_names = json.loads(selected_record.config) if selected_record else []
+    except (json.JSONDecodeError, TypeError):
+        selected_module_names = []
+
+    records_by_name = {
+        record.name: record
+        for record in module_records
+        if record.name != "selected_modules"
+    }
+    terminal_statuses = {
+        "COMPLETED",
+        "FAILED",
+        "PARTIAL",
+        "SKIPPED",
+        "TIMEOUT",
+        "CANCELLED",
+    }
     modules_progress = []
-    
-    if scan.status == "RUNNING":
-        # Calculate elapsed time in seconds
-        elapsed = datetime.now(timezone.utc) - scan.updatedAt.replace(tzinfo=timezone.utc)
-        elapsed_sec = int(elapsed.total_seconds())
-        
-        currently_executing = None
-        for idx, mod in enumerate(module_names):
-            start_threshold = idx * 10
-            end_threshold = (idx + 1) * 10
-            
-            if elapsed_sec >= end_threshold:
-                modules_progress.append(ModuleProgressSchema(name=mod, status="COMPLETED", progress=100))
-            elif elapsed_sec >= start_threshold:
-                pct = int(((elapsed_sec - start_threshold) / 10) * 100)
-                modules_progress.append(ModuleProgressSchema(name=mod, status="RUNNING", progress=pct))
-                currently_executing = f"Checking {mod} configurations..."
-            else:
-                modules_progress.append(ModuleProgressSchema(name=mod, status="WAITING", progress=0))
-                
-        if not currently_executing:
-            currently_executing = "Finalizing scan summary reports..."
-            
-        return ScanProgressResponse(
-            scanId=scan.id,
-            status=scan.status,
-            targetUrl=scan.asset.url,
-            startedAt=scan.updatedAt,
-            elapsedTime=elapsed_sec,
-            currentlyExecuting=currently_executing,
-            modules=modules_progress
+    for module_name in selected_module_names:
+        record = records_by_name.get(module_name)
+        module_status = record.status if record else "WAITING"
+        progress = 100 if module_status in terminal_statuses else 50 if module_status == "RUNNING" else 0
+        modules_progress.append(
+            ModuleProgressSchema(
+                name=module_name,
+                status=module_status,
+                progress=progress,
+            )
         )
+
+    elapsed_seconds = None
+    if scan.startedAt:
+        start_time = scan.startedAt
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        end_time = scan.completedAt or datetime.now(timezone.utc)
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+        elapsed_seconds = max(0, int((end_time - start_time).total_seconds()))
+
+    currently_executing = None
+    if scan.currentModule:
+        currently_executing = f"Running {scan.currentModule} scanner..."
     elif scan.status == "QUEUED":
-        return ScanProgressResponse(
-            scanId=scan.id,
-            status=scan.status,
-            targetUrl=scan.asset.url,
-            startedAt=None,
-            elapsedTime=0,
-            currentlyExecuting="Scan job is in the execution queue...",
-            modules=[ModuleProgressSchema(name=mod, status="WAITING", progress=0) for mod in module_names]
-        )
-    elif scan.status == "COMPLETED":
-        return ScanProgressResponse(
-            scanId=scan.id,
-            status=scan.status,
-            targetUrl=scan.asset.url,
-            startedAt=scan.createdAt,
-            elapsedTime=scan.duration or 60,
-            currentlyExecuting=None,
-            modules=[ModuleProgressSchema(name=mod, status="COMPLETED", progress=100) for mod in module_names]
-        )
-    elif scan.status == "FAILED":
-        for idx, mod in enumerate(module_names):
-            if mod == "OWASP":
-                modules_progress.append(ModuleProgressSchema(name=mod, status="FAILED", progress=45))
-            elif idx < 3: # Crawler, Headers, SSL completed
-                modules_progress.append(ModuleProgressSchema(name=mod, status="COMPLETED", progress=100))
-            else:
-                modules_progress.append(ModuleProgressSchema(name=mod, status="WAITING", progress=0))
-                
-        return ScanProgressResponse(
-            scanId=scan.id,
-            status=scan.status,
-            targetUrl=scan.asset.url,
-            startedAt=scan.createdAt,
-            elapsedTime=32,
-            currentlyExecuting="Execution aborted due to scanner failure.",
-            modules=modules_progress
-        )
-    else: # CANCELLED
-        for idx, mod in enumerate(module_names):
-            if idx < 2: # Crawler, Headers completed
-                modules_progress.append(ModuleProgressSchema(name=mod, status="COMPLETED", progress=100))
-            else:
-                modules_progress.append(ModuleProgressSchema(name=mod, status="WAITING", progress=0))
-                
-        return ScanProgressResponse(
-            scanId=scan.id,
-            status=scan.status,
-            targetUrl=scan.asset.url,
-            startedAt=scan.createdAt,
-            elapsedTime=15,
-            currentlyExecuting="Aborted by user request.",
-            modules=modules_progress
-        )
+        currently_executing = "Scan job is in the execution queue..."
+    elif scan.status == "PREPARING":
+        currently_executing = "Preparing selected scanner modules..."
+
+    return ScanProgressResponse(
+        scanId=scan.id,
+        status=scan.status,
+        targetUrl=scan.asset.url,
+        startedAt=scan.startedAt,
+        elapsedTime=elapsed_seconds,
+        currentlyExecuting=currently_executing,
+        modules=modules_progress,
+    )
 
 @router.get("/{id}/logs", response_model=ScanLogsResponse)
 def get_scan_logs(
@@ -600,33 +582,7 @@ def get_registered_scanners():
     """
     Returns registered scanner modules metadata dynamically from the registry.
     """
-    if not scanner_registry:
-        raise HTTPException(status_code=500, detail="Scanner registry is not loaded.")
-        
-    # Ensure all scanners are loaded
-    scanner_registry.load_default_scanners()
-    
-    scanners_list = []
-    for name, klass in scanner_registry.all().items():
-        try:
-            # Instantiate class temporarily to read its metadata() dictionary
-            temp = klass.__new__(klass)
-            temp.SCANNER_NAME = klass.SCANNER_NAME
-            meta = klass.metadata(temp)
-            scanners_list.append(meta)
-        except Exception as e:
-            # Fallback metadata if metadata() method has an error
-            scanners_list.append({
-                "name": name,
-                "version": getattr(klass, "SCANNER_VERSION", "1.0.0"),
-                "description": klass.__doc__ or "No description available.",
-                "tool": "unknown",
-                "tool_version": "unknown",
-                "target_types": ["WEBSITE"],
-                "output_format": "JSON"
-            })
-            
-    return scanners_list
+    return scanner_metadata()
 
 @router.get("/scan-profiles/list")
 def get_scan_profiles():
@@ -644,8 +600,7 @@ def get_scan_profiles():
             "duration": "~30 sec",
             "configurable": False,
             "modules": {
-                "WEBSITE": ["owasp", "headers", "ssl"],
-                "REPOSITORY": ["secrets"]
+                **resolved_profile_modules("QUICK")
             }
         },
         {
@@ -657,8 +612,7 @@ def get_scan_profiles():
             "duration": "~2–5 min",
             "configurable": False,
             "modules": {
-                "WEBSITE": ["owasp", "headers", "ssl", "dns", "technology", "crawler"],
-                "REPOSITORY": ["secrets"]
+                **resolved_profile_modules("STANDARD")
             }
         },
         {
@@ -670,8 +624,7 @@ def get_scan_profiles():
             "duration": "~5–15 min",
             "configurable": True,
             "modules": {
-                "WEBSITE": ["owasp", "crawler", "headers", "ssl", "dns", "technology", "ports", "subdomains"],
-                "REPOSITORY": ["secrets", "repository"]
+                **resolved_profile_modules("ADVANCED")
             }
         },
         {
@@ -683,8 +636,7 @@ def get_scan_profiles():
             "duration": "Variable",
             "configurable": True,
             "modules": {
-                "WEBSITE": ["owasp", "crawler", "headers", "ssl", "dns", "technology", "ports", "subdomains", "waf"],
-                "REPOSITORY": ["secrets", "repository"]
+                **resolved_profile_modules("CUSTOM")
             }
         }
     ]
@@ -1027,5 +979,3 @@ def get_scan_scoring(
             status_code=500,
             detail=f"Failed to calculate security score breakdown: {str(e)}"
         )
-
-
