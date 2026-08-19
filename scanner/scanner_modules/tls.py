@@ -158,4 +158,7 @@ class TLSScanner(BaseScanner):
             "target_types": ["WEBSITE"],
             "output_format": "JSON",
             "categories": ["Protocol"],
+            "implemented": True,
+            "selectable": False,
+            "superseded_by": "ssl",
         }

@@ -96,6 +96,14 @@ def test_tls_parses_protocol_evidence_and_uses_one_ip(tmp_path: Path) -> None:
     ]
 
 
+def test_tls_is_not_selectable_because_ssl_includes_protocol_checks() -> None:
+    metadata = TLSScanner("https://example.test").metadata()
+
+    assert metadata["implemented"] is True
+    assert metadata["selectable"] is False
+    assert metadata["superseded_by"] == "ssl"
+
+
 def test_unimplemented_module_cannot_report_success() -> None:
     scanner = APIScanner("https://example.test")
     result = scanner.run()

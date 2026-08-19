@@ -6,6 +6,7 @@ from database.session import get_db
 from database.models import User, ScanSchedule
 from api.deps import get_current_user
 from schemas.schemas import ScanScheduleCreate, ScanSchedulePatch, ScanScheduleResponse
+from services.scanner_catalog import validate_module_selection
 
 router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
@@ -22,6 +23,8 @@ def create_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    selected_modules = validate_module_selection(payload.modules, payload.targetType)
+
     # Construct advanced config dict
     adv_config = {
         "crawling": payload.crawling or {},
@@ -37,7 +40,7 @@ def create_schedule(
         targetUrl=payload.targetUrl,
         targetType=payload.targetType,
         scanType=payload.scanType,
-        selectedModules=json.dumps(payload.modules or []),
+        selectedModules=json.dumps(selected_modules),
         advancedConfig=json.dumps(adv_config),
         frequency=payload.frequency,
         cronExpression=payload.cronExpression,
