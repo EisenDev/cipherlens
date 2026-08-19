@@ -25,3 +25,17 @@ This list contains features and technical tasks scheduled for future sprints.
 - [ ] Write TLS certificate expiration and cipher suite validation parser.
 - [ ] Incorporate open-source secrets analyzer into repository scan suite.
 - [ ] Define standardized Pydantic models for scanner output to validate schema integrity.
+- [ ] [FEATURE-001] Implement passive API discovery with allowlisted OpenAPI/GraphQL
+  evidence checks.
+- [ ] [FEATURE-002] Implement favicon retrieval, hashing, and evidence inventory.
+- [ ] [FEATURE-003] Implement bounded exposed-file checks with content validation to avoid
+  soft-404 false positives.
+- [ ] [FEATURE-004] Implement consolidated passive fingerprinting or remove the duplicate
+  fingerprint module in favor of technology scanning.
+- [ ] [FEATURE-005] Implement safe HTTP method analysis using `OPTIONS`/`Allow` evidence
+  without sending destructive verbs.
+- [ ] [FEATURE-006] Implement information-disclosure checks with redacted evidence.
+- [ ] [FEATURE-007] Implement redirect-chain, robots.txt, security.txt, and sitemap parsers.
+- [ ] [FEATURE-008] Implement passive WAF fingerprinting with vendor-specific evidence.
+- [ ] [SECURITY-001] Add website ownership verification before enabling higher-impact or
+  authenticated scan profiles.

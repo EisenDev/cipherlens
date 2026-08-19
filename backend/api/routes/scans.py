@@ -670,7 +670,7 @@ def get_scan_profiles():
             "duration": "~5–15 min",
             "configurable": True,
             "modules": {
-                "WEBSITE": ["owasp", "crawler", "headers", "ssl", "dns", "technology", "ports", "subdomains", "waf"],
+                "WEBSITE": ["owasp", "crawler", "headers", "ssl", "dns", "technology", "ports", "subdomains"],
                 "REPOSITORY": ["secrets", "repository"]
             }
         },
@@ -1027,6 +1027,5 @@ def get_scan_scoring(
             status_code=500,
             detail=f"Failed to calculate security score breakdown: {str(e)}"
         )
-
 
 

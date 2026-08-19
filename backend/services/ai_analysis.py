@@ -477,14 +477,20 @@ Output JSON keys must be exactly:
                 })
 
             compliance = {
-                "OWASP Top 10": ["A05:2021-Security Misconfiguration" if headers_count > 0 else "A01:2021-Broken Access Control"],
-                "CWE": [f.cwe] if (findings and findings[0].cwe) else ["CWE-200"],
-                "CVE": [f.cve] if (findings and findings[0].cve) else ["CVE-2024-XXXX"],
-                "MITRE ATT&CK": ["T1566" if "email" in most_likely_surface.lower() else "T1190"],
-                "NIST": ["PR.DS-1", "PR.PT-4"],
-                "PCI DSS": ["Requirement 6.5.8" if cookies_count > 0 else "Requirement 2.2"],
-                "SOC2": ["CC6.1", "CC6.3"],
-                "ISO27001": ["Control A.12.6.1" if port_list else "Control A.14.2.8"]
+                "OWASP Top 10": (
+                    ["A05:2021-Security Misconfiguration"] if headers_count > 0 else []
+                ),
+                "CWE": sorted({f.cwe for f in findings if f.cwe}),
+                "CVE": sorted({f.cve for f in findings if f.cve}),
+                "MITRE ATT&CK": [],
+                "NIST": [],
+                "PCI DSS": (
+                    ["Requirement 6.5.8"] if cookies_count > 0 else []
+                ),
+                "SOC2": [],
+                "ISO27001": (
+                    ["Control A.12.6.1"] if port_list else []
+                ),
             }
 
             report.update({

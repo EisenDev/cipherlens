@@ -1404,7 +1404,9 @@ def score_from_db(db_session: Any, scan_id: str) -> ScoringResult:
     # Filter out selected_modules meta-record
     enabled_mods = [m for m in all_modules if m.name != "selected_modules"]
     completed_module_names = [m.name for m in enabled_mods if m.status == "COMPLETED"]
-    failed_mods_count = sum(1 for m in enabled_mods if m.status == "FAILED")
+    failed_mods_count = sum(
+        1 for m in enabled_mods if m.status in ("FAILED", "TIMEOUT")
+    )
     enabled_mods_count = len(enabled_mods)
 
     results = db_session.query(ScanResult).filter(ScanResult.scanId == scan_id).all()

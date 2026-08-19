@@ -393,7 +393,8 @@ export default function ResultsPage() {
 
     activeMods.forEach((m) => {
       if (m.status === 'COMPLETED') counts.completed++;
-      else if (m.status === 'FAILED') counts.failed++;
+      else if (m.status === 'FAILED' || m.status === 'TIMEOUT') counts.failed++;
+      else if (m.status === 'PARTIAL') counts.completed++;
       else if (m.status === 'SKIPPED') counts.skipped++;
       else counts.queued++;
     });

@@ -113,7 +113,7 @@ class ScanModule(Base):
     config = Column(Text, nullable=False) # JSON encoded configuration string
     
     # Execution states for module
-    status = Column(String, default="WAITING", nullable=False) # WAITING, QUEUED, RUNNING, COMPLETED, FAILED, SKIPPED, CANCELLED
+    status = Column(String, default="WAITING", nullable=False) # WAITING, QUEUED, RUNNING, COMPLETED, PARTIAL, FAILED, TIMEOUT, SKIPPED, CANCELLED
     duration = Column(Integer, nullable=True)
     errors = Column(Text, nullable=True)
     logs = Column(Text, nullable=True)

@@ -44,19 +44,14 @@ class InformationScanner(BaseScanner):
         target = sanitize_target(self.target)
         logger.info("InformationScanner running against %s (placeholder implementation)", target)
 
-        # Placeholder: return clean result, findings will be populated in Phase 3.1
-        return ScannerResult(
-            scanner_name=self.SCANNER_NAME,
-            scanner_version=self.SCANNER_VERSION,
-            target=target,
-            status=ScannerStatus.SUCCESS,
-            findings=[],
-            metadata={"note": "Placeholder implementation — Phase 3.1 will add full logic"},
+        return self._make_skipped_result(
+            "Information-disclosure analysis is not implemented; no checks were executed."
         )
 
     def metadata(self) -> Dict[str, Any]:
         return {
             "name": self.SCANNER_NAME,
+            "implemented": False,
             "version": self.SCANNER_VERSION,
             "description": "Detects information disclosure via error pages, server banners, stack traces, debug endpoints",
             "tool": "requests (Python)",

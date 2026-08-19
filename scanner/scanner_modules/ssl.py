@@ -141,7 +141,9 @@ class SSLScanner(BaseScanner):
             "--jsonfile", str(output_file),
             "--color", "0",          # No ANSI colors in output
             "--quiet",               # Minimal stdout noise
-            "--fast",                # Skip time-consuming checks when in fast mode
+            "--server-defaults",     # Certificate and negotiated server defaults
+            "--vulnerable",          # Known TLS vulnerability checks
+            "--ip", "one",           # Bound runtime for multi-address/CDN targets
             "--nodns", "min",        # Minimal DNS lookups
             clean_target,
         ]
@@ -170,9 +172,19 @@ class SSLScanner(BaseScanner):
             exit_code in (246, 252, 254)
         )
 
-        if is_connection_error:
-            status = ScannerStatus.SUCCESS
-            logger.info("SSLScanner: target connection failed/refused. Target likely does not support SSL/TLS on port 443.")
+        error_message: Optional[str] = None
+        if exit_code == 249 and "nslookup" in output_combined:
+            status = ScannerStatus.FAILED
+            error_message = (
+                "SSL/TLS scanner runtime is missing a DNS resolver utility "
+                "(dig, host, drill, or nslookup)."
+            )
+        elif exit_code == -1 and "TIMEOUT" in output_combined.upper():
+            status = ScannerStatus.TIMEOUT
+            error_message = "SSL/TLS scan timed out before all checks completed."
+        elif is_connection_error:
+            status = ScannerStatus.FAILED
+            error_message = "Could not establish a TLS connection to the target."
         elif exit_code in (0, 1):
             status = ScannerStatus.SUCCESS
         else:
@@ -188,6 +200,7 @@ class SSLScanner(BaseScanner):
             tool_command=" ".join(str(c) for c in command),
             tool_exit_code=exit_code,
             tool_raw_output=truncate_output(stdout + stderr),
+            error_message=error_message,
         )
 
     def _parse_testssl_findings(
@@ -225,7 +238,7 @@ class SSLScanner(BaseScanner):
                         raw_data=item,
                     )
                 )
-            elif finding_id in ("cert_chain_of_trust", "cert_notAfter", "cert_expired"):
+            elif finding_id in ("cert_chain_of_trust", "cert_notafter", "cert_expired"):
                 severity_map = {"CRITICAL": Severity.CRITICAL, "HIGH": Severity.HIGH, "MEDIUM": Severity.MEDIUM, "LOW": Severity.LOW}
                 findings.append(
                     Finding(

@@ -1,16 +1,4 @@
-"""
-CipherLens Scanner — Technology Fingerprinting Scanner
-
-Wraps: httpx --tech-detect + Custom Signature Extraction
-
-Detects technologies used by the target web application:
-    - Web framework (Django, Rails, Laravel, React, Next.js, Vue, etc.)
-    - Server software (Nginx, Apache, IIS)
-    - Databases & Cache (PostgreSQL, MySQL, Redis, MongoDB)
-    - CMS (WordPress, Drupal, Joomla)
-    - CDN and WAF providers
-    - Third-party scripts and integrations (Stripe, Google Analytics, Google Fonts)
-"""
+"""Passive, evidence-backed public web technology fingerprinting."""
 
 from __future__ import annotations
 
@@ -19,7 +7,6 @@ import logging
 import re
 import ssl
 import sys
-import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -32,246 +19,267 @@ from utils import run_tool, sanitize_target, truncate_output
 
 logger = logging.getLogger(__name__)
 
-# High-risk technologies known to have frequent security issues
-_HIGH_RISK_TECHNOLOGIES = [
-    "wordpress", "joomla", "drupal", "magento", "struts",
-    "phpmailer", "log4j", "spring", "websphere", "weblogic",
-]
-
-# Rich regex signature matrix for frontend, backend, databases, and third-parties
-_SIGNATURE_MATRIX = {
-    "Frontend Frameworks & Libraries": {
-        "React": [r"react", r"react-dom", r"__reactFiber", r"data-reactroot"],
-        "Vue.js": [r"vue", r"v-bind", r"v-model", r"v-if", r"data-v-"],
-        "Angular": [r"angular", r"ng-version", r"ng-app", r"ng-controller"],
-        "Svelte": [r"svelte-", r"svelte-announcer"],
-        "jQuery": [r"jquery", r"jQuery"],
-        "Tailwind CSS": [r"tailwind", r"tw-", r"space-y-", r"bg-bg-"],
-        "Bootstrap": [r"bootstrap", r"col-md-", r"col-lg-", r"col-sm-"],
-    },
-    "Backend Frameworks & Platforms": {
-        "Node.js / Express": [r"connect\.sid", r"io", r"express", r"sails"],
-        "Django": [r"csrftoken", r"django", r"WSGIServer", r"__admin__"],
-        "Flask": [r"session", r"flask"],
-        "Ruby on Rails": [r"_session_id", r"X-Rack-Cache", r"actionview", r"activerecord"],
-        "Laravel": [r"laravel_session", r"Laravel", r"X-Laravel-Cache"],
-        "ASP.NET": [r"ASP\.NET_SessionId", r"__VIEWSTATE", r"X-AspNet-Version"],
-        "PHP": [r"PHPSESSID", r"\.php", r"X-Powered-By: PHP"],
-        "Spring Boot": [r"JSESSIONID", r"spring", r"Spring Boot"],
-    },
-    "Databases & Cache (Indirect indicators)": {
-        "PostgreSQL": [r"postgresql", r"postgres", r"pg_connect", r"pg_query", r"db_host_port=5432"],
-        "MySQL / MariaDB": [r"mysql", r"mysqli", r"mysql_connect", r"db_host_port=3306"],
-        "MongoDB": [r"mongodb", r"mongo", r"mongoose", r"db_host_port=27017"],
-        "Redis": [r"redis", r"ioredis", r"redis-client", r"db_host_port=6379"],
-        "SQLite": [r"sqlite", r"sqlite3"],
-    },
-    "Third-Party Services & Integrations": {
-        "Google Analytics": [r"google-analytics\.com", r"gtag", r"ua-", r"googletagmanager\.com"],
-        "Stripe": [r"stripe\.com", r"Stripe", r"stripe\.js"],
-        "Cloudflare CDN": [r"__cf_bm", r"__cfduid", r"Server: cloudflare", r"cf-ray"],
-        "Google Fonts": [r"fonts\.googleapis\.com", r"fonts\.gstatic\.com"],
-        "Font Awesome": [r"font-awesome", r"fa-"],
-        "Sentry": [r"sentry\.io", r"Sentry"],
-    }
+_HIGH_RISK_TECHNOLOGIES = {
+    "wordpress", "joomla", "drupal", "magento", "struts", "weblogic"
 }
+
+_CATEGORY_ALIASES = {
+    "react": "Frontend Frameworks & Libraries",
+    "vue.js": "Frontend Frameworks & Libraries",
+    "vue": "Frontend Frameworks & Libraries",
+    "angular": "Frontend Frameworks & Libraries",
+    "svelte": "Frontend Frameworks & Libraries",
+    "bootstrap": "Frontend Frameworks & Libraries",
+    "tailwind css": "Frontend Frameworks & Libraries",
+    "express": "Backend Frameworks & Platforms",
+    "node.js": "Backend Frameworks & Platforms",
+    "node.js / express": "Backend Frameworks & Platforms",
+    "django": "Backend Frameworks & Platforms",
+    "flask": "Backend Frameworks & Platforms",
+    "laravel": "Backend Frameworks & Platforms",
+    "spring boot": "Backend Frameworks & Platforms",
+    "asp.net": "Backend Frameworks & Platforms",
+    "postgresql": "Databases & Cache",
+    "mysql": "Databases & Cache",
+    "mariadb": "Databases & Cache",
+    "mongodb": "Databases & Cache",
+    "redis": "Databases & Cache",
+    "sqlite": "Databases & Cache",
+    "cloudflare": "Edge / CDN / WAF",
+    "cloudflare cdn": "Edge / CDN / WAF",
+    "akamai": "Edge / CDN / WAF",
+    "fastly": "Edge / CDN / WAF",
+}
+
+# Patterns are deliberately specific. Generic words such as "session", "spring", "io",
+# and "express" are not sufficient evidence of a backend technology.
+_SIGNATURES = (
+    ("React", "Frontend Frameworks & Libraries", r"(?:react-dom|data-reactroot|__reactFiber|/react(?:\.production)?\.min\.js)", "body"),
+    ("Vue.js", "Frontend Frameworks & Libraries", r"(?:data-v-[0-9a-f]{4,}|__VUE__|/vue(?:\.runtime)?(?:\.global)?(?:\.prod)?\.js)", "body"),
+    ("Angular", "Frontend Frameworks & Libraries", r"(?:ng-version=|<app-root\b|angular\.min\.js)", "body"),
+    ("Svelte", "Frontend Frameworks & Libraries", r"(?:class=\"svelte-[^\"]+|svelte-announcer)", "body"),
+    ("Bootstrap", "Frontend Frameworks & Libraries", r"(?:bootstrap(?:\.min)?\.(?:css|js)|class=\"[^\"]*\bcol-(?:sm|md|lg)-)", "body"),
+    ("Node.js / Express", "Backend Frameworks & Platforms", r"^x-powered-by:\s*express\s*$", "headers"),
+    ("Django", "Backend Frameworks & Platforms", r"(?:^set-cookie:\s*csrftoken=|^server:\s*WSGIServer)", "headers"),
+    ("Laravel", "Backend Frameworks & Platforms", r"(?:^set-cookie:\s*laravel_session=|^x-powered-by:\s*Laravel)", "headers"),
+    ("ASP.NET", "Backend Frameworks & Platforms", r"(?:^x-aspnet-version:|^set-cookie:\s*ASP\.NET_SessionId=)", "headers"),
+    ("PHP", "Backend Frameworks & Platforms", r"^x-powered-by:\s*PHP(?:/[^\s]+)?\s*$", "headers"),
+    ("Cloudflare", "Edge / CDN / WAF", r"(?:^server:\s*cloudflare\s*$|^cf-ray:)", "headers"),
+    ("Fastly", "Edge / CDN / WAF", r"(?:^x-served-by:.*cache-|^via:.*varnish)", "headers"),
+    ("Google Analytics", "Third-Party Services & Integrations", r"(?:googletagmanager\.com|google-analytics\.com|\bgtag\s*\()", "body"),
+    ("Stripe", "Third-Party Services & Integrations", r"js\.stripe\.com", "body"),
+    ("Sentry", "Third-Party Services & Integrations", r"(?:sentry\.io|Sentry\.init\s*\()", "body"),
+)
 
 
 class TechnologyScanner(BaseScanner):
-    """
-    Detects web application technology stack via httpx fingerprinting.
-    Flags high-risk technologies that have known vulnerability histories.
-    """
+    """Fingerprint only technology signals observable at the public HTTP boundary."""
 
     SCANNER_NAME = "technology"
-    SCANNER_VERSION = "1.0.0"
+    SCANNER_VERSION = "2.0.0"
+    MAX_BODY_BYTES = 2 * 1024 * 1024
 
     def validate(self) -> None:
         target = sanitize_target(self.target)
         if not target.startswith(("http://", "https://")):
-            raise ValueError(f"TechnologyScanner requires an HTTP/HTTPS URL, got: {target!r}")
+            raise ValueError(
+                f"TechnologyScanner requires an HTTP/HTTPS URL, got: {target!r}"
+            )
         self.config.tool_path("httpx")
 
-    def _run_custom_signature_scan(self, target: str, timeout: int) -> Dict[str, List[str]]:
-        detected: Dict[str, List[str]] = {}
-        
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+    @staticmethod
+    def _category_for(technology: str) -> str:
+        return _CATEGORY_ALIASES.get(
+            technology.casefold(), "Other Stack Components"
+        )
 
-        headers_str = ""
-        body_str = ""
-        cookies_str = ""
-        
-        try:
-            req = urllib.request.Request(
-                target,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CipherLens/1.0"}
+    def _match_signatures(
+        self, *, headers: str, cookies: str, body: str
+    ) -> List[Dict[str, str]]:
+        """Return passive matches with the exact source and signal preserved."""
+        sources = {"headers": headers, "cookies": cookies, "body": body}
+        matches: List[Dict[str, str]] = []
+        for name, category, pattern, source in _SIGNATURES:
+            match = re.search(pattern, sources[source], re.IGNORECASE | re.MULTILINE)
+            if not match:
+                continue
+            signal = match.group(0)[:240]
+            matches.append(
+                {
+                    "name": name,
+                    "category": category,
+                    "source": f"http_{source}",
+                    "confidence": "confirmed" if source == "headers" else "probable",
+                    "signal": signal,
+                }
             )
-            with urllib.request.urlopen(req, context=ctx, timeout=timeout) as response:
-                body_bytes = response.read()
-                body_str = body_bytes.decode("utf-8", errors="ignore")
-                
-                # Fetch headers
-                for key, val in response.getheaders():
-                    headers_str += f"{key}: {val}\n"
-                    if key.lower() == "set-cookie":
-                        cookies_str += f"{val}; "
-        except Exception as e:
-            logger.warning(f"Failed to fetch technology HTML for fallback signature scanning: {e}")
-            return detected
+        return matches
 
-        # Run regex matching
-        for category, items in _SIGNATURE_MATRIX.items():
-            for name, patterns in items.items():
-                for pattern in patterns:
-                    if (re.search(pattern, body_str, re.IGNORECASE) or
-                        re.search(pattern, headers_str, re.IGNORECASE) or
-                        re.search(pattern, cookies_str, re.IGNORECASE)):
-                        
-                        if category not in detected:
-                            detected[category] = []
-                        if name not in detected[category]:
-                            detected[category].append(name)
-                        break
-                        
-        return detected
+    def _run_custom_signature_scan(
+        self, target: str, timeout: int
+    ) -> List[Dict[str, str]]:
+        context = ssl.create_default_context()
+        request = urllib.request.Request(
+            target,
+            headers={"User-Agent": "CipherLens/2.0 (+defensive-security-audit)"},
+        )
+        try:
+            with urllib.request.urlopen(
+                request, context=context, timeout=min(timeout, 30)
+            ) as response:
+                body = response.read(self.MAX_BODY_BYTES).decode("utf-8", errors="ignore")
+                header_lines = [f"{key}: {value}" for key, value in response.getheaders()]
+                cookies = "\n".join(
+                    value
+                    for key, value in response.getheaders()
+                    if key.casefold() == "set-cookie"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Passive technology response collection failed: %s", exc)
+            return []
+        return self._match_signatures(
+            headers="\n".join(header_lines), cookies=cookies, body=body
+        )
+
+    @staticmethod
+    def _merge_inventory(
+        httpx_technologies: List[str], passive_signals: List[Dict[str, str]]
+    ) -> List[Dict[str, str]]:
+        inventory = list(passive_signals)
+        seen = {item["name"].casefold() for item in inventory}
+        for technology in httpx_technologies:
+            if technology.casefold() in seen:
+                continue
+            inventory.append(
+                {
+                    "name": technology,
+                    "category": TechnologyScanner._category_for(technology),
+                    "source": "httpx",
+                    "confidence": "possible",
+                    "signal": f"httpx tech-detect: {technology}",
+                }
+            )
+            seen.add(technology.casefold())
+        return inventory
 
     def execute(self) -> ScannerResult:
         target = sanitize_target(self.target)
-        httpx_path = self.config.tool_path("httpx")
         timeout = self._option("timeout", self.config.default_timeout)
-
         command = [
-            str(httpx_path),
-            "-u", target,
-            "-tech-detect",
-            "-json",
-            "-silent",
-            "-timeout", str(timeout),
+            str(self.config.tool_path("httpx")), "-u", target, "-tech-detect",
+            "-json", "-silent", "-timeout", str(timeout), "-include-response-header",
         ]
-
         exit_code, stdout, stderr = run_tool(command, timeout=timeout + 10)
 
         raw_data: Optional[Dict[str, Any]] = None
         try:
-            lines = [l for l in stdout.strip().splitlines() if l.strip()]
+            lines = [line for line in stdout.splitlines() if line.strip()]
             if lines:
                 raw_data = json.loads(lines[-1])
         except json.JSONDecodeError:
-            pass
+            logger.warning("httpx returned non-JSON technology output")
 
+        httpx_technologies = list((raw_data or {}).get("tech") or [])
+        passive_signals = self._run_custom_signature_scan(target, timeout)
+        inventory = self._merge_inventory(httpx_technologies, passive_signals)
         findings: List[Finding] = []
-        technologies: List[str] = []
 
-        if raw_data:
-            technologies = raw_data.get("tech", []) or []
-
-        # Run custom regex matrix scanning
-        custom_techs = self._run_custom_signature_scan(target, timeout)
-
-        # Merge custom-detected techs into list
-        for cat, list_techs in custom_techs.items():
-            for tech in list_techs:
-                if tech not in technologies:
-                    technologies.append(tech)
-
-        if technologies:
-            # Build high-fidelity categorization explanation
-            desc_lines = [f"The following technology components were detected on {target}:\n"]
-            
-            # Format custom groupings in description
-            for cat, items in custom_techs.items():
-                desc_lines.append(f"\n### {cat}")
+        if inventory:
+            grouped: Dict[str, List[Dict[str, str]]] = {}
+            for item in inventory:
+                grouped.setdefault(item["category"], []).append(item)
+            description_lines = [
+                "Technologies observable at the public HTTP boundary were fingerprinted."
+            ]
+            for category, items in grouped.items():
+                description_lines.append(f"\n### {category}")
                 for item in items:
-                    desc_lines.append(f"* **{item}** — Identified component via index fingerprint signatures.")
-            
-            # Include default ones if they weren't grouped
-            ungrouped = []
-            flat_custom = [t for sub in custom_techs.values() for t in sub]
-            for tech in technologies:
-                if tech not in flat_custom:
-                    ungrouped.append(tech)
-            if ungrouped:
-                desc_lines.append("\n### Other Stack Components")
-                for u in ungrouped:
-                    desc_lines.append(f"* **{u}** — Detected via HTTPX engine analysis.")
+                    description_lines.append(
+                        f"* **{item['name']}** — {item['confidence']} via {item['source']}."
+                    )
+            if "Backend Frameworks & Platforms" not in grouped:
+                description_lines.append("\nBackend framework: not externally detectable.")
+            if "Databases & Cache" not in grouped:
+                description_lines.append("Database/cache: not externally detectable.")
 
-            description = "\n".join(desc_lines)
-
+            names = [item["name"] for item in inventory]
+            evidence = "\n".join(
+                f"{item['name']} [{item['source']}/{item['confidence']}]: {item['signal']}"
+                for item in inventory
+            )
             findings.append(
                 Finding(
-                    title=f"Technology Stack Fingerprinted: {', '.join(technologies[:5])}",
+                    title=f"Technology Stack Fingerprinted: {', '.join(names[:5])}",
                     severity=Severity.INFO,
                     scanner=self.SCANNER_NAME,
                     category="Technology Fingerprint",
-                    description=description,
-                    evidence=f"Detected technologies: {', '.join(technologies)}",
+                    description="\n".join(description_lines),
+                    evidence=evidence,
                     remediation=(
-                        "Verify detected technologies are up-to-date and patched. "
-                        "Consider removing unnecessary technology disclosures."
+                        "Verify detected components and versions through an authenticated "
+                        "inventory or SBOM; remove unnecessary public technology disclosures."
                     ),
                     raw_data={
-                        "technologies": technologies,
-                        "categorized": custom_techs,
-                        "ip": raw_data.get("ip") if raw_data else None,
-                        "status_code": raw_data.get("status_code") if raw_data else None,
-                        "final_url": raw_data.get("url") if raw_data else None,
-                        "server": (
-                            raw_data.get("response_headers", {}).get("server") or 
-                            raw_data.get("header", {}).get("server")
-                        ) if raw_data else None,
-                        "content_type": (
-                            raw_data.get("response_headers", {}).get("content-type") or 
-                            raw_data.get("header", {}).get("content-type")
-                        ) if raw_data else None,
+                        "inventory": inventory,
+                        "ip": (raw_data or {}).get("ip"),
+                        "status_code": (raw_data or {}).get("status_code"),
+                        "final_url": (raw_data or {}).get("url"),
+                        "server": ((raw_data or {}).get("response_headers") or {}).get("server"),
                     },
                 )
             )
 
-            # Flag high-risk technologies
-            for tech in technologies:
-                tech_lower = tech.lower()
-                for high_risk in _HIGH_RISK_TECHNOLOGIES:
-                    if high_risk in tech_lower:
-                        findings.append(
-                            Finding(
-                                title=f"High-Risk Technology Detected: {tech}",
-                                severity=Severity.MEDIUM,
-                                scanner=self.SCANNER_NAME,
-                                category="Technology Risk",
-                                description=(
-                                    f"{tech} has a history of critical CVEs. "
-                                    "Ensure it is fully up-to-date and hardened."
-                                ),
-                                evidence=f"Fingerprinted technology: {tech} on {target}",
-                                remediation=(
-                                    f"Update {tech} to the latest stable version. "
-                                    "Enable automatic security updates. Review security advisories."
-                                ),
-                                raw_data={"technology": tech},
-                            )
-                        )
-                        break
+            for item in inventory:
+                if item["name"].casefold() not in _HIGH_RISK_TECHNOLOGIES:
+                    continue
+                findings.append(
+                    Finding(
+                        title=f"High-Risk Technology Detected: {item['name']}",
+                        severity=Severity.MEDIUM,
+                        scanner=self.SCANNER_NAME,
+                        category="Technology Risk",
+                        description=(
+                            "A technology with a significant security history was "
+                            "fingerprinted; the externally visible signal does not prove version."
+                        ),
+                        evidence=item["signal"],
+                        remediation="Confirm the deployed version and apply current security updates.",
+                        raw_data=item,
+                    )
+                )
+
+        if exit_code == -1 and "TIMEOUT" in (stdout + stderr).upper():
+            status = ScannerStatus.TIMEOUT
+            error_message = "Technology fingerprinting timed out."
+        elif exit_code not in (0, 1) and not inventory:
+            status = ScannerStatus.FAILED
+            error_message = "Technology fingerprinting produced no usable evidence."
+        elif exit_code not in (0, 1):
+            status = ScannerStatus.PARTIAL
+            error_message = "httpx failed, but passive HTTP fingerprint evidence was collected."
+        else:
+            status = ScannerStatus.SUCCESS
+            error_message = None
 
         return ScannerResult(
             scanner_name=self.SCANNER_NAME,
             scanner_version=self.SCANNER_VERSION,
             target=target,
-            status=ScannerStatus.SUCCESS if exit_code in (0, 1) else ScannerStatus.PARTIAL,
+            status=status,
             findings=findings,
-            metadata={"technologies": technologies, "categorized": custom_techs},
-            tool_command=" ".join(str(c) for c in command),
+            metadata={"inventory": inventory, "evidence_count": len(inventory)},
+            tool_command=" ".join(command),
             tool_exit_code=exit_code,
-            tool_raw_output=truncate_output(stdout),
+            tool_raw_output=truncate_output(stdout + stderr),
+            error_message=error_message,
         )
 
     def metadata(self) -> Dict[str, Any]:
         return {
             "name": self.SCANNER_NAME,
             "version": self.SCANNER_VERSION,
-            "description": "Technology fingerprinting and high-risk framework detection",
-            "tool": "httpx",
+            "description": "Evidence-backed passive public technology fingerprinting",
+            "tool": "httpx + passive HTTP signatures",
             "tool_version": "1.6.10",
             "target_types": ["WEBSITE"],
             "output_format": "JSON",

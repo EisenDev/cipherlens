@@ -29,6 +29,26 @@ class ScanExecutionService:
         self.manager = ScannerManager()
         self.manager.initialize()
 
+    @staticmethod
+    def _module_record_status(status: ScannerStatus) -> str:
+        """Map scanner-engine states without collapsing partial/timeout/skipped."""
+        return {
+            ScannerStatus.SUCCESS: "COMPLETED",
+            ScannerStatus.PARTIAL: "PARTIAL",
+            ScannerStatus.FAILED: "FAILED",
+            ScannerStatus.SKIPPED: "SKIPPED",
+            ScannerStatus.TIMEOUT: "TIMEOUT",
+        }[status]
+
+    @staticmethod
+    def _elapsed_seconds(started_at: datetime, completed_at: datetime) -> int:
+        """Calculate elapsed seconds across DBs that return naive timestamps."""
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        if completed_at.tzinfo is None:
+            completed_at = completed_at.replace(tzinfo=timezone.utc)
+        return int((completed_at - started_at).total_seconds())
+
     def run_scan(self, scan_id: str) -> None:
         """
         Execute the complete scan lifecycle for the given scan ID.
@@ -151,14 +171,17 @@ class ScanExecutionService:
                     scan_rec = self.db.query(Scan).filter(Scan.id == scan_id).first()
                     asset_id = scan_rec.assetId if scan_rec else None
 
-                    if result.status == ScannerStatus.SUCCESS:
-                        record.status = "COMPLETED"
+                    if result.status in (ScannerStatus.SUCCESS, ScannerStatus.PARTIAL):
+                        record.status = self._module_record_status(result.status)
+                        record.errors = result.error_message
                         any_success = True
                         all_failed = False
                         self._add_log(
                             scan_id, 
-                            "INFO", 
-                            f"Module '{mod_name}' completed successfully in {duration}s. (Findings: {len(result.findings)})"
+                            "INFO" if result.status == ScannerStatus.SUCCESS else "WARNING",
+                            f"Module '{mod_name}' "
+                            f"{'completed successfully' if result.status == ScannerStatus.SUCCESS else 'completed partially'} "
+                            f"in {duration}s. (Findings: {len(result.findings)})"
                         )
                         # Save findings
                         for f in result.findings:
@@ -198,13 +221,21 @@ class ScanExecutionService:
                                 resolvedAt=resolvedAt
                             )
                             self.db.add(finding)
+                    elif result.status == ScannerStatus.SKIPPED:
+                        record.status = "SKIPPED"
+                        record.errors = result.error_message or "Module was not executed."
+                        self._add_log(
+                            scan_id,
+                            "WARNING",
+                            f"Module '{mod_name}' skipped: {record.errors}",
+                        )
                     else:
-                        record.status = "FAILED"
+                        record.status = self._module_record_status(result.status)
                         record.errors = result.error_message or "Module returned failure status."
                         self._add_log(
                             scan_id, 
                             "ERROR", 
-                            f"Module '{mod_name}' failed: {record.errors}"
+                            f"Module '{mod_name}' {record.status.lower()}: {record.errors}"
                         )
                         # Save findings if any were generated despite the failure
                         if result.findings:
@@ -264,7 +295,7 @@ class ScanExecutionService:
             self.db.refresh(scan)
             if scan.status != "CANCELLED":
                 scan.completedAt = datetime.now(timezone.utc)
-                duration_total = int((scan.completedAt - scan.startedAt).total_seconds())
+                duration_total = self._elapsed_seconds(scan.startedAt, scan.completedAt)
                 scan.duration = duration_total
                 scan.progress = 100
                 scan.currentModule = None
@@ -282,7 +313,7 @@ class ScanExecutionService:
             else:
                 # Cancelled finalize
                 scan.completedAt = datetime.now(timezone.utc)
-                scan.duration = int((scan.completedAt - scan.startedAt).total_seconds())
+                scan.duration = self._elapsed_seconds(scan.startedAt, scan.completedAt)
                 scan.currentModule = None
                 
             self.db.commit()

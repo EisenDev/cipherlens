@@ -87,6 +87,10 @@ export default function ProgressPage() {
         return <span className="text-green-600">✅</span>;
       case 'FAILED':
         return <span className="text-danger">❌</span>;
+      case 'PARTIAL':
+        return <span className="text-warning">⚠️</span>;
+      case 'TIMEOUT':
+        return <span className="text-danger">⏱️</span>;
       case 'SKIPPED':
         return <span className="text-gray-400">⏭️</span>;
       case 'CANCELLED':

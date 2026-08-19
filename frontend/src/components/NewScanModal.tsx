@@ -680,7 +680,9 @@ export default function NewScanModal({ isOpen, onClose, onScanCreated, initialCo
 
   // Filter modules dynamically using fetched registry list if available
   const activeScanners = registeredScanners.length > 0
-    ? registeredScanners.filter(s => s.target_types.includes(targetType)).map(s => ({
+    ? registeredScanners.filter(
+        s => s.implemented !== false && s.target_types.includes(targetType)
+      ).map(s => ({
         id: s.name,
         name: getModuleDisplayName(s.name),
         description: s.description,
